@@ -289,13 +289,14 @@ fn menu_action(
     >,
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut _game_state: ResMut<NextState<GameState>>,
+    mut game_state: ResMut<NextState<GameState>>,
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Play => {
                     menu_state.set(MenuState::Disabled);
+                    game_state.set(GameState::Game);
                 },
                 MenuButtonAction::Settings => {
                     menu_state.set(MenuState::Settings);

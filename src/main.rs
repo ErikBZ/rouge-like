@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 mod splash;
 mod menu;
+mod game;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum GameState {
@@ -18,6 +19,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_plugins(splash::splash_plugin)
         .add_plugins(menu::menu_plugin)
+        .add_plugins(game::game_plugin)
         .run();
 }
 
