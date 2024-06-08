@@ -4,6 +4,21 @@ use bevy::window::PrimaryWindow;
 
 use crate::{despawn_screen, GameState};
 
+#[derive(Default, Component)]
+struct Player;
+
+// NOTE: SpriteSheetBundle will handle import the sprites
+// I wonder how we can change this so that it picks up
+// custom sheets
+#[derive(Default, Bundle, LdtkEntity)]
+struct PlayerBundle {
+    player: Player,
+    #[sprite_sheet_bundle]
+    sprite_bundle: SpriteSheetBundle,
+    #[grid_coords]
+    grid_coords: GridCoords
+}
+
 #[derive(Resource, Deref, DerefMut)]
 struct GameTimer(Timer);
 
@@ -19,10 +34,22 @@ struct WallBundle {
 struct OnLevelScreen;
 
 #[derive(Default, Resource)]
-struct LevelsWalls {
+struct LevelWalls {
     wall_locations: HashSet<GridCoords>,
     level_width: i32,
     level_height: i32,
+}
+
+impl LevelWalls {
+    fn in_wall(&self, grid_coords: &GridCoords) -> bool {
+        println!("{}", self.level_width);
+        println!("{}", self.level_height);
+        grid_coords.x < 0
+            || grid_coords.y < 0
+            || grid_coords.x >= self.level_width
+            || grid_coords.y >= self.level_height
+            || self.wall_locations.contains(grid_coords)
+    }
 }
 
 pub fn game_plugin(app: &mut App) {
@@ -30,8 +57,9 @@ pub fn game_plugin(app: &mut App) {
     app
         .add_plugins(LdtkPlugin)
         .insert_resource(LevelSelection::index(0))
-        .init_resource::<LevelsWalls>()
+        .init_resource::<LevelWalls>()
         .register_ldtk_int_cell::<WallBundle>(1)
+        .register_ldtk_entity::<PlayerBundle>("Player")
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(GameState::Game), game_setup)
@@ -40,9 +68,51 @@ pub fn game_plugin(app: &mut App) {
             exit_to_menu,
             move_screen_rts,
             zoom_in_scroll_wheel,
+            move_player,
+            translate_grid_entities
         ).run_if(in_state(GameState::Game)))
-        .add_systems(Update, exit_to_menu)
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
+}
+
+fn move_player(
+    mut players: Query<&mut GridCoords, With<Player>>,
+    input: Res<ButtonInput<KeyCode>>,
+    level_walls: Res<LevelWalls>
+) {
+    // NOTE: input presses might have multiple keys so we can't use pattern matching
+    let dir = if input.just_pressed(KeyCode::KeyW){
+        GridCoords::new(0, 1)
+    } else if input.just_pressed(KeyCode::KeyA) {
+        GridCoords::new(-1, 0)
+    } else if input.just_pressed(KeyCode::KeyS) {
+        GridCoords::new(0, -1)
+    } else if input.just_pressed(KeyCode::KeyD) {
+        GridCoords::new(1, 0)
+    } else {
+        return;
+    };
+
+    for mut player_grid_coords in players.iter_mut() {
+        dbg!(*player_grid_coords);
+        let des = *player_grid_coords + dir;
+
+        // NOTE: Updating coords but not sprite
+        if !level_walls.in_wall(&des) {
+            *player_grid_coords = des;
+        }
+    }
+}
+
+fn translate_grid_entities(
+    // NOTE: Changed must only query GridCoords that have recently changed (last frame, or this
+    // frame?)
+    mut grid_coords_entities: Query<(&mut Transform, &GridCoords), Changed<GridCoords>>
+) {
+    for (mut transform, grid_coords) in grid_coords_entities.iter_mut() {
+        transform.translation =
+            bevy_ecs_ldtk::utils::grid_coords_to_translation(*grid_coords, IVec2::splat(GRID_SIZE))
+                .extend(transform.translation.z);
+    }
 }
 
 // NOTE: Camera does not implement the trait bounds, but &Camera does?
@@ -116,6 +186,7 @@ fn move_screen_rts(
 
     if let Some(position) = window.cursor_position() {
         if let Some(dir) = get_scroll_direction(height, width, position) {
+            // TODO: Check if there's a better way to move the screen
             transform.translation.x += dir.x * EDGE_SCROLL_SPEED;
             transform.translation.y += dir.y * EDGE_SCROLL_SPEED;
         }
@@ -160,7 +231,7 @@ fn exit_to_menu(mut game_state: ResMut<NextState<GameState>>,
 const GRID_SIZE: i32 = 16;
 
 fn set_level_walls(
-    mut level_walls: ResMut<LevelsWalls>,
+    mut level_walls: ResMut<LevelWalls>,
     mut level_events: EventReader<LevelEvent>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
@@ -178,7 +249,7 @@ fn set_level_walls(
 
             let wall_locations: HashSet<GridCoords> = walls.iter().copied().collect();
 
-            let new_level_walls = LevelsWalls {
+            let new_level_walls = LevelWalls {
                 wall_locations,
                 level_width: level.px_wid / GRID_SIZE,
                 level_height: level.px_hei / GRID_SIZE,
