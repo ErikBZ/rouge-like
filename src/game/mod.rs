@@ -42,8 +42,6 @@ struct LevelWalls {
 
 impl LevelWalls {
     fn in_wall(&self, grid_coords: &GridCoords) -> bool {
-        println!("{}", self.level_width);
-        println!("{}", self.level_height);
         grid_coords.x < 0
             || grid_coords.y < 0
             || grid_coords.x >= self.level_width
@@ -93,7 +91,6 @@ fn move_player(
     };
 
     for mut player_grid_coords in players.iter_mut() {
-        dbg!(*player_grid_coords);
         let des = *player_grid_coords + dir;
 
         // NOTE: Updating coords but not sprite
