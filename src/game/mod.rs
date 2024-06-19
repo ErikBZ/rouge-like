@@ -1,11 +1,15 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, utils::HashSet};
-use bevy_ecs_ldtk::prelude::*;
+use bevy::{input::mouse::MouseWheel, prelude::*, utils::{HashMap, HashSet}};
+use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords};
 use bevy::window::PrimaryWindow;
+use std::collections::VecDeque;
 
 use crate::{despawn_screen, GameState};
 
 #[derive(Default, Component)]
 struct Player;
+
+#[derive(Default, Resource)]
+struct MouseGridCoords(GridCoords);
 
 // NOTE: SpriteSheetBundle will handle import the sprites
 // I wonder how we can change this so that it picks up
@@ -56,18 +60,21 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(LdtkPlugin)
         .insert_resource(LevelSelection::index(0))
         .init_resource::<LevelWalls>()
+        .init_resource::<MouseGridCoords>()
         .register_ldtk_int_cell::<WallBundle>(1)
         .register_ldtk_entity::<PlayerBundle>("Player")
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(GameState::Game), game_setup)
+        .add_systems(Update, track_mouse_coords)
         .add_systems(Update, (
             set_level_walls,
             exit_to_menu,
             move_screen_rts,
             zoom_in_scroll_wheel,
             move_player,
-            translate_grid_entities
+            translate_grid_entities,
+            print_mouse_cords
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
@@ -116,8 +123,8 @@ fn translate_grid_entities(
 fn game_setup(
     mut commands: Commands, 
     assert_server: Res<AssetServer>, 
-    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>)
-{
+    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
+) {
     commands.spawn((
         LdtkWorldBundle {
             ldtk_handle: assert_server.load("test_level.ldtk"),
@@ -156,7 +163,6 @@ fn zoom_in_scroll_wheel(
             MouseScrollUnit::Pixel => {
                 // TODO: Figure out how to test this since
                 // my mouse is line
-                println!("Pixel scrolling not implemented yet, this may no work");
                 if ev.y < 0. {
                     proj.scale -= ZOOM_SPEED;
                 } else if ev.y > 0. {
@@ -217,16 +223,22 @@ fn get_scroll_direction(h: f32, w: f32, mouse_pos: Vec2) -> Option<Vec2> {
     }
 }
 
-fn exit_to_menu(mut game_state: ResMut<NextState<GameState>>,
-                keys: Res<ButtonInput<KeyCode>>)
-{
+fn exit_to_menu(
+    mut game_state: ResMut<NextState<GameState>>,
+    keys: Res<ButtonInput<KeyCode>>
+) {
     if keys.pressed(KeyCode::Escape) {
         game_state.set(GameState::Menu);
     }
 }
 
 const GRID_SIZE: i32 = 16;
+const GRID_SIZE_VEC: IVec2 = IVec2 {
+    x: 16,
+    y: 16
+};
 
+// TODO: Do this at startup
 fn set_level_walls(
     mut level_walls: ResMut<LevelWalls>,
     mut level_events: EventReader<LevelEvent>,
@@ -255,4 +267,65 @@ fn set_level_walls(
             *level_walls = new_level_walls;
         }
     }
+}
+
+fn track_mouse_coords(
+    mut mouse_coords: ResMut<MouseGridCoords>,
+    q_window: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<Camera>>
+) {
+    let (cam, cam_transform) = q_camera.single();
+    let window = q_window.single();
+
+    if let Some(world_pos) = window.cursor_position()
+        .and_then(|cursor| cam.viewport_to_world(cam_transform, cursor))
+        .map(|ray| ray.origin.truncate())
+    {
+        let coords: GridCoords = translation_to_grid_coords(world_pos, GRID_SIZE_VEC);
+        if coords != mouse_coords.0 {
+            mouse_coords.0 = coords;
+        }
+    }
+}
+
+fn print_mouse_cords(
+    buttons: Res<ButtonInput<MouseButton>>,
+    mouse_coords: Res<MouseGridCoords>
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        println!("Mouse Coords: ({}, {})", mouse_coords.0.x, mouse_coords.0.y);
+    }
+}
+
+fn manhattan_dist(start: GridCoords, end: GridCoords) -> i32 {
+    (end.x - start.x).abs() + (end.y - start.y).abs()
+}
+
+fn get_movement_path(
+    target_coords: GridCoords,
+    start_coords: GridCoords,
+    walls: LevelWalls
+) -> Vec<GridCoords> {
+    let mut f_scores: HashMap<GridCoords, i32> = HashMap::new();
+    let mut g_scores: HashMap<GridCoords, i32> = HashMap::new();
+    let mut came_from: HashMap<GridCoords, GridCoords> = HashMap::new();
+    let mut queue: VecDeque<GridCoords> = VecDeque::new();
+
+    f_scores.insert(start_coords, manhattan_dist(start_coords, target_coords));
+    g_scores.insert(start_coords, 0);
+    queue.push_back(start_coords);
+
+    while queue.len() > 0 {
+        let coord = match queue.pop_front() {
+            Some(c) => c,
+            None => continue,
+        };
+
+        if coord == target_coords {
+            break;
+        }
+    }
+
+    let path: Vec<GridCoords> = vec!();
+    path
 }
