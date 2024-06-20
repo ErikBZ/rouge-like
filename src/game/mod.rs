@@ -1,7 +1,8 @@
 use bevy::{input::mouse::MouseWheel, prelude::*, utils::{HashMap, HashSet}};
 use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords};
 use bevy::window::PrimaryWindow;
-use std::collections::VecDeque;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 use crate::{despawn_screen, GameState};
 
@@ -290,10 +291,18 @@ fn track_mouse_coords(
 
 fn print_mouse_cords(
     buttons: Res<ButtonInput<MouseButton>>,
-    mouse_coords: Res<MouseGridCoords>
+    mouse_coords: Res<MouseGridCoords>,
+    players: Query<&GridCoords, With<Player>>,
+    level_walls: Res<LevelWalls>
 ) {
     if buttons.just_pressed(MouseButton::Left) {
-        println!("Mouse Coords: ({}, {})", mouse_coords.0.x, mouse_coords.0.y);
+        let player = players.single();
+
+        if let Some(path) = get_movement_path(mouse_coords.0, *player, level_walls, 5) {
+            for path_node in path {
+                println!("Node: ({}, {})", path_node.x, path_node.y);
+            }
+        }
     }
 }
 
@@ -301,31 +310,108 @@ fn manhattan_dist(start: GridCoords, end: GridCoords) -> i32 {
     (end.x - start.x).abs() + (end.y - start.y).abs()
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+struct PathState {
+    // TODO: Rename this to cost
+    cost: i32,
+    coords: GridCoords
+}
+
+// TODO: Maybe i gotta flip this for a min heap?
+impl Ord for PathState {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.cost.cmp(&self.cost)
+    }
+}
+
+impl PartialOrd for PathState {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 fn get_movement_path(
     target_coords: GridCoords,
     start_coords: GridCoords,
-    walls: LevelWalls
-) -> Vec<GridCoords> {
+    walls: Res<LevelWalls>,
+    max_dist: i32
+) -> Option<Vec<GridCoords>> {
     let mut f_scores: HashMap<GridCoords, i32> = HashMap::new();
     let mut g_scores: HashMap<GridCoords, i32> = HashMap::new();
     let mut came_from: HashMap<GridCoords, GridCoords> = HashMap::new();
-    let mut queue: VecDeque<GridCoords> = VecDeque::new();
+    let mut queue: BinaryHeap<PathState> = BinaryHeap::new();
 
     f_scores.insert(start_coords, manhattan_dist(start_coords, target_coords));
     g_scores.insert(start_coords, 0);
-    queue.push_back(start_coords);
+    queue.push(PathState { cost: 0, coords: start_coords });
 
     while queue.len() > 0 {
-        let coord = match queue.pop_front() {
-            Some(c) => c,
+        let curr = match queue.pop() {
+            Some(c) => c.coords,
             None => continue,
         };
 
-        if coord == target_coords {
-            break;
+        if curr == target_coords {
+            return Some(resolve_path(came_from, curr));
+        }
+
+        for next_coord in get_neighbors(curr) {
+            if walls.in_wall(&next_coord) {
+                continue;
+            }
+
+            if let Some(curr_g_score) = g_scores.get(&curr) {
+                if *curr_g_score > max_dist {
+                    break;
+                }
+
+                // TODO: 1 is the weight of the edge. In our case this should change depending on
+                // the cost of the tile to move into
+                let next_g_score = curr_g_score + 1;
+                let neighbor_g_score = g_scores.entry(next_coord).or_insert(i32::MAX);
+                let neighbor_f_score = f_scores.entry(next_coord).or_insert(i32::MAX);
+
+                if next_g_score < *neighbor_g_score {
+                    *came_from.entry(next_coord).or_insert(curr) = curr;
+                    *neighbor_g_score = next_g_score;
+                    *neighbor_f_score = next_g_score + manhattan_dist(next_coord, target_coords);
+
+                    queue.push(PathState {
+                        cost: next_g_score + manhattan_dist(next_coord, target_coords),
+                        coords: next_coord
+                    });
+                }
+            }
         }
     }
+    None
+}
 
-    let path: Vec<GridCoords> = vec!();
+// TODO: Make this look nicer
+fn resolve_path(came_from: HashMap<GridCoords, GridCoords>, target: GridCoords) -> Vec<GridCoords> {
+    let mut path: Vec<GridCoords> = Vec::new();
+    let mut curr = target;
+    path.push(curr);
+
+    while came_from.contains_key(&curr) {
+        curr = match came_from.get(&curr) {
+            Some(c) => *c,
+            None => break,
+        };
+
+        path.push(curr);
+    }
+
+    path.reverse();
     path
 }
+
+fn get_neighbors(center: GridCoords) -> Vec<GridCoords> {
+    vec![
+        center + GridCoords::new(0, -1),
+        center + GridCoords::new(0, 1),
+        center + GridCoords::new(-1, 0),
+        center + GridCoords::new(1, 0),
+    ]
+}
+
