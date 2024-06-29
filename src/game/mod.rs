@@ -1,7 +1,8 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, utils::{HashMap, HashSet}};
-use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords};
+use bevy::{input::mouse::MouseWheel, prelude::*, time::Stopwatch, utils::{HashMap, HashSet}};
+use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords, utils::grid_coords_to_translation};
 use bevy::window::PrimaryWindow;
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::VecDeque};
+use std::ops::Sub;
 use std::collections::BinaryHeap;
 
 use crate::{despawn_screen, GameState};
@@ -37,6 +38,28 @@ struct WallBundle {
 
 #[derive(Component)]
 struct OnLevelScreen;
+
+#[derive(Component)]
+struct MovementTarget {
+    // NOTE: Have to progress this myself
+    pub time: Stopwatch,
+    // NOTE: Should this be seconds?
+    pub time_to_reach: f32,
+    pub target: GridCoords,
+    // NOTE: Should this be in tranform coords or grid coords
+    pub speed: f32,
+}
+
+#[derive(Component)]
+struct QueuedMovementTarget {
+    // NOTE: Have to progress this myself
+    pub time: Stopwatch,
+    // NOTE: Should this be seconds?
+    pub time_to_reach: f32,
+    pub targets: VecDeque<GridCoords>,
+    // NOTE: Should this be in tranform coords or grid coords
+    pub speed: f32,
+}
 
 #[derive(Default, Resource)]
 struct LevelWalls {
@@ -74,8 +97,8 @@ pub fn game_plugin(app: &mut App) {
             move_screen_rts,
             zoom_in_scroll_wheel,
             move_player,
-            translate_grid_entities,
-            print_mouse_cords
+            add_queued_movement_target_to_entity,
+            lerp_queued_movement,
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
@@ -290,6 +313,7 @@ fn track_mouse_coords(
 }
 
 fn print_mouse_cords(
+    mut commands: Commands,
     buttons: Res<ButtonInput<MouseButton>>,
     mouse_coords: Res<MouseGridCoords>,
     players: Query<&GridCoords, With<Player>>,
@@ -303,6 +327,61 @@ fn print_mouse_cords(
                 println!("Node: ({}, {})", path_node.x, path_node.y);
             }
         }
+    }
+}
+
+fn add_movement_target_to_entity(
+    mut commands: Commands,
+    buttons: Res<ButtonInput<MouseButton>>,
+    mouse_coords: Res<MouseGridCoords>,
+    entities: Query<Entity, With<Player>>,
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+
+        let entity = entities.single();
+        commands.entity(entity).insert(MovementTarget {
+            target: mouse_coords.0,
+            // NOTE: Should this be transform coords or grid coords?
+            speed: 125.0,
+            time: Stopwatch::new(),
+            // Seconds?
+            time_to_reach: 5.0,
+        });
+    }
+}
+
+fn add_queued_movement_target_to_entity(
+    mut commands: Commands,
+    buttons: Res<ButtonInput<MouseButton>>,
+    mouse_coords: Res<MouseGridCoords>,
+    walls: Res<LevelWalls>,
+    entities: Query<(Entity, &GridCoords), With<Player>>,
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+
+        let (entity, current_coords) = entities.single();
+        if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, walls, 5) {
+            let mut queue = VecDeque::from(targets);
+            queue.pop_front();
+            commands.entity(entity).insert(QueuedMovementTarget {
+                targets: queue,
+                // NOTE: Should this be transform coords or grid coords?
+                speed: 125.0,
+                time: Stopwatch::new(),
+                // Seconds?
+                time_to_reach: 5.0,
+            });
+        };
+    }
+}
+
+fn print_movement_target(
+    mut query: Query<(&mut Transform, &mut MovementTarget), With<MovementTarget>>,
+    time: Res<Time>,
+) {
+    for (mut transform, mut target) in query.iter_mut() {
+        target.time.tick(time.delta());
+        println!("{}", target.time.elapsed_secs());
     }
 }
 
@@ -413,5 +492,92 @@ fn get_neighbors(center: GridCoords) -> Vec<GridCoords> {
         center + GridCoords::new(-1, 0),
         center + GridCoords::new(1, 0),
     ]
+}
+
+fn lerp_movement(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut MovementTarget)>,
+    time: Res<Time>
+) {
+    for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
+        let time_delta = time.delta_seconds();
+        let origin: IVec2 = IVec2::from(*coords);
+        let dest: IVec2 = IVec2::from(target.target);
+        let direction = dest.sub(origin).as_vec2().normalize() * (time_delta * target.speed);
+
+        let translation = Vec3 {
+            x: direction.x,
+            y: direction.y,
+            z: 0.0,
+        };
+
+        let target_in_world = grid_coords_to_translation(target.target, IVec2::splat(GRID_SIZE)).extend(transform.translation.z);
+        transform.translation = transform.translation + translation;
+
+        // NOTE: What about moving down or left?
+        if (translation.x > 0.0 && transform.translation.x > target_in_world.x) ||
+           (translation.x < 0.0 && transform.translation.x < target_in_world.x) {
+            transform.translation.x = target_in_world.x;
+        }
+        if (translation.y > 0.0 && transform.translation.y > target_in_world.y) ||
+           (translation.y < 0.0 && transform.translation.y < target_in_world.y) {
+            transform.translation.y = target_in_world.y;
+        }
+
+        if within(transform.translation.x, target_in_world.x, 0.05) &&
+           within(transform.translation.y, target_in_world.y, 0.05) {
+            *coords = target.target;
+            commands.entity(entity).remove::<MovementTarget>();
+        }
+
+        target.time.tick(time.delta());
+    }
+}
+
+fn lerp_queued_movement(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
+    time: Res<Time>
+) {
+    for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
+        if let Some(dest_target) = target.targets.get(0) {
+            let time_delta = time.delta_seconds();
+            let origin: IVec2 = IVec2::from(*coords);
+            let dest: IVec2 = IVec2::from(*dest_target);
+            let direction = dest.sub(origin).as_vec2().normalize() * (time_delta * target.speed);
+
+            let translation = Vec3 {
+                x: direction.x,
+                y: direction.y,
+                z: 0.0,
+            };
+
+            let target_in_world = grid_coords_to_translation(*dest_target, IVec2::splat(GRID_SIZE)).extend(transform.translation.z);
+            transform.translation = transform.translation + translation;
+
+            // NOTE: What about moving down or left?
+            if (translation.x > 0.0 && transform.translation.x > target_in_world.x) ||
+               (translation.x < 0.0 && transform.translation.x < target_in_world.x) {
+                transform.translation.x = target_in_world.x;
+            }
+            if (translation.y > 0.0 && transform.translation.y > target_in_world.y) ||
+               (translation.y < 0.0 && transform.translation.y < target_in_world.y) {
+                transform.translation.y = target_in_world.y;
+            }
+
+            if within(transform.translation.x, target_in_world.x, 0.05) &&
+               within(transform.translation.y, target_in_world.y, 0.05) {
+                *coords = *dest_target;
+                target.targets.pop_front();
+                commands.entity(entity).remove::<MovementTarget>();
+            }
+
+            target.time.tick(time.delta());
+        }
+    }
+}
+
+fn within(lhs: f32, rhs: f32, dist: f32) -> bool {
+    (lhs - rhs).abs() < dist
 }
 
