@@ -1,6 +1,5 @@
-use bevy::{input::mouse::MouseWheel, prelude::*, time::Stopwatch, utils::{HashMap, HashSet}};
-use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords, utils::grid_coords_to_translation};
-use bevy::window::PrimaryWindow;
+use bevy::{prelude::*, time::Stopwatch, utils::HashMap};
+use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
@@ -8,17 +7,6 @@ use std::collections::BinaryHeap;
 use crate::game::{Player, MouseGridCoords, LevelWalls};
 use crate::game::GRID_SIZE;
 
-
-#[derive(Component)]
-struct MovementTarget {
-    // NOTE: Have to progress this myself
-    pub time: Stopwatch,
-    // NOTE: Should this be seconds?
-    pub time_to_reach: f32,
-    pub target: GridCoords,
-    // NOTE: Should this be in tranform coords or grid coords
-    pub speed: f32,
-}
 
 #[derive(Component)]
 pub struct QueuedMovementTarget {
@@ -29,27 +17,6 @@ pub struct QueuedMovementTarget {
     pub targets: VecDeque<GridCoords>,
     // NOTE: Should this be in tranform coords or grid coords
     pub speed: f32,
-}
-
-
-fn add_movement_target_to_entity(
-    mut commands: Commands,
-    buttons: Res<ButtonInput<MouseButton>>,
-    mouse_coords: Res<MouseGridCoords>,
-    entities: Query<Entity, With<Player>>,
-) {
-    if buttons.just_pressed(MouseButton::Left) {
-
-        let entity = entities.single();
-        commands.entity(entity).insert(MovementTarget {
-            target: mouse_coords.0,
-            // NOTE: Should this be transform coords or grid coords?
-            speed: 125.0,
-            time: Stopwatch::new(),
-            // Seconds?
-            time_to_reach: 5.0,
-        });
-    }
 }
 
 pub fn add_queued_movement_target_to_entity(
@@ -190,46 +157,6 @@ fn get_neighbors(center: GridCoords) -> Vec<GridCoords> {
     ]
 }
 
-fn lerp_movement(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut MovementTarget)>,
-    time: Res<Time>
-) {
-    for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
-        let time_delta = time.delta_seconds();
-        let origin: IVec2 = IVec2::from(*coords);
-        let dest: IVec2 = IVec2::from(target.target);
-        let direction = dest.sub(origin).as_vec2().normalize() * (time_delta * target.speed);
-
-        let translation = Vec3 {
-            x: direction.x,
-            y: direction.y,
-            z: 0.0,
-        };
-
-        let target_in_world = grid_coords_to_translation(target.target, IVec2::splat(GRID_SIZE)).extend(transform.translation.z);
-        transform.translation = transform.translation + translation;
-
-        // NOTE: What about moving down or left?
-        if (translation.x > 0.0 && transform.translation.x > target_in_world.x) ||
-           (translation.x < 0.0 && transform.translation.x < target_in_world.x) {
-            transform.translation.x = target_in_world.x;
-        }
-        if (translation.y > 0.0 && transform.translation.y > target_in_world.y) ||
-           (translation.y < 0.0 && transform.translation.y < target_in_world.y) {
-            transform.translation.y = target_in_world.y;
-        }
-
-        if within(transform.translation.x, target_in_world.x, 0.05) &&
-           within(transform.translation.y, target_in_world.y, 0.05) {
-            *coords = target.target;
-            commands.entity(entity).remove::<MovementTarget>();
-        }
-
-        target.time.tick(time.delta());
-    }
-}
-
 pub fn lerp_queued_movement(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
@@ -265,10 +192,11 @@ pub fn lerp_queued_movement(
                within(transform.translation.y, target_in_world.y, 0.05) {
                 *coords = *dest_target;
                 target.targets.pop_front();
-                commands.entity(entity).remove::<MovementTarget>();
             }
 
             target.time.tick(time.delta());
+        } else {
+            commands.entity(entity).remove::<QueuedMovementTarget>();
         }
     }
 }
