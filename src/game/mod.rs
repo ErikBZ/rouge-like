@@ -47,6 +47,15 @@ struct LevelWalls {
     level_height: i32,
 }
 
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+enum ActiveGameState {
+    #[default]
+    Select,
+    InGameMenu,
+    Move,
+    Attack,
+}
+
 impl LevelWalls {
     fn in_wall(&self, grid_coords: &GridCoords) -> bool {
         grid_coords.x < 0
@@ -64,6 +73,7 @@ pub fn game_plugin(app: &mut App) {
         .insert_resource(LevelSelection::index(0))
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
+        .init_state::<ActiveGameState>()
         .register_ldtk_int_cell::<WallBundle>(1)
         .register_ldtk_entity::<PlayerBundle>("Player")
         // TODO: Should we force this to run when the level loads
@@ -79,6 +89,27 @@ pub fn game_plugin(app: &mut App) {
             lerp_queued_movement,
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
+}
+
+fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
+    move |current_state: Option<Res<State<S>>>, current_state_two: Option<Res<State<T>>>| match current_state {
+        Some(current_state) => match current_state_two {
+            Some(current_state_two) => *current_state == state && *current_state_two == state_two,
+            None => false
+        },
+        None => {
+            warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
+                    let debug_state = format!("{state:?}");
+                    let result = debug_state
+                        .split("::")
+                        .next()
+                        .unwrap_or("Unknown State Type");
+                    result.to_string()
+                });
+
+            false
+        }
+    }
 }
 
 // NOTE: Camera does not implement the trait bounds, but &Camera does?
