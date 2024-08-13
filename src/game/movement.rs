@@ -13,7 +13,6 @@ pub struct QueuedMovementTarget {
     // NOTE: Have to progress this myself
     pub time: Stopwatch,
     // NOTE: Should this be seconds?
-    pub time_to_reach: f32,
     pub targets: VecDeque<GridCoords>,
     // NOTE: Should this be in tranform coords or grid coords
     pub speed: f32,
@@ -28,19 +27,20 @@ pub fn add_queued_movement_target_to_entity(
 ) {
     if buttons.just_pressed(MouseButton::Left) {
 
-        let (entity, current_coords) = entities.single();
-        if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, walls, 5) {
-            let mut queue = VecDeque::from(targets);
-            queue.pop_front();
-            commands.entity(entity).insert(QueuedMovementTarget {
-                targets: queue,
-                // NOTE: Should this be transform coords or grid coords?
-                speed: 125.0,
-                time: Stopwatch::new(),
-                // Seconds?
-                time_to_reach: 5.0,
-            });
-        };
+        for (entity, current_coords) in entities.iter() {
+            // let (entity, current_coords) = entities.single();
+            if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, &walls, 5) {
+                let mut queue = VecDeque::from(targets);
+                queue.pop_front();
+                commands.entity(entity).insert(QueuedMovementTarget {
+                    targets: queue,
+                    // NOTE: Should this be transform coords or grid coords?
+                    speed: 125.0,
+                    time: Stopwatch::new(),
+                    // Seconds?
+                });
+            };
+        }
     }
 }
 
@@ -74,7 +74,7 @@ impl PartialOrd for PathState {
 fn get_movement_path(
     target_coords: GridCoords,
     start_coords: GridCoords,
-    walls: Res<LevelWalls>,
+    walls: &Res<LevelWalls>,
     max_dist: i32
 ) -> Option<Vec<GridCoords>> {
     let mut f_scores: HashMap<GridCoords, i32> = HashMap::new();

@@ -1,5 +1,5 @@
 use bevy::{prelude::*, utils:: HashSet};
-use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 
 use crate::{despawn_screen, GameState};
 mod movement;
@@ -87,6 +87,7 @@ pub fn game_plugin(app: &mut App) {
             zoom_in_scroll_wheel,
             add_queued_movement_target_to_entity,
             lerp_queued_movement,
+            add_player_to_map,
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
@@ -172,6 +173,63 @@ fn set_level_walls(
             };
 
             *level_walls = new_level_walls;
+        }
+    }
+}
+
+#[derive(Default, Component)]
+struct UnitStats {
+    hp: u32,
+    def: u32,
+    atk: u32,
+    spd: u32,
+}
+
+#[derive(Default, Bundle, LdtkEntity)]
+struct UnitBundle {
+    stats: UnitStats,
+    #[sprite_sheet_bundle]
+    sprite_bundle: SpriteSheetBundle,
+    #[grid_coords]
+    grid_coords: GridCoords
+}
+
+#[derive(Default, Component)]
+struct TaggedChecker;
+
+fn add_player_to_map(
+    mut commands: Commands,
+    entity_query: Query<Entity, With<LevelIid>>,
+    assert_server: Res<AssetServer>,
+    keys: Res<ButtonInput<KeyCode>>
+) {
+    if keys.just_pressed(KeyCode::KeyI) {
+        for entity in entity_query.iter() {
+            let texture = assert_server.load("player.png");
+
+            let grid_coords = GridCoords::new(3,3);
+            commands.entity(entity).with_children(|parent| {
+                parent.spawn((
+                    UnitBundle {
+                        stats: UnitStats {
+                            hp: 0,
+                            def: 0,
+                            atk: 0,
+                            spd: 0
+                        },
+                        sprite_bundle: SpriteSheetBundle{
+                            texture,
+                            transform: Transform {
+                                translation: grid_coords_to_translation(grid_coords, IVec2::splat(GRID_SIZE)).extend(2.0),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        grid_coords
+                    },
+                    Player,
+                ));
+            });
         }
     }
 }
