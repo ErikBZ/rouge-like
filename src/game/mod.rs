@@ -1,15 +1,20 @@
 use bevy::{prelude::*, utils:: HashSet};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
+use level_setup::add_units_to_map;
 
 use crate::{despawn_screen, GameState};
 mod movement;
 mod camera;
+mod level_setup;
 
 use movement::{add_queued_movement_target_to_entity, lerp_queued_movement};
 use camera::*;
 
 #[derive(Default, Component)]
 struct Player;
+
+#[derive(Default, Component)]
+struct Enemy;
 
 #[derive(Default, Resource)]
 pub struct MouseGridCoords(GridCoords);
@@ -79,7 +84,7 @@ pub fn game_plugin(app: &mut App) {
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(GameState::Game), game_setup)
-        .add_systems(Update, track_mouse_coords)
+        .add_systems(Update, (track_mouse_coords, add_units_to_map))
         .add_systems(Update, (
             set_level_walls,
             exit_to_menu,
@@ -87,7 +92,6 @@ pub fn game_plugin(app: &mut App) {
             zoom_in_scroll_wheel,
             add_queued_movement_target_to_entity,
             lerp_queued_movement,
-            add_player_to_map,
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
