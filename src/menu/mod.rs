@@ -32,11 +32,11 @@ struct OnMainMenuScreen;
 struct OnSettingsMenuScreen;
 
 // Examples have srgb, but that's missing now. Using rgb instead 
-const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const HOVERED_PRESSED_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const PRESSED_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
-const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const PRESSED_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
 
 #[derive(Component)]
 struct SelectedOption;
@@ -114,7 +114,7 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
+                    background_color: BackgroundColor(Color::srgb(0.86, 0.08, 0.24)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -238,7 +238,7 @@ fn settings_menu_setup(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
+                    background_color: BackgroundColor(Color::srgb(0.86, 0.08, 0.24)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -288,7 +288,7 @@ fn menu_action(
                     menu_state.set(MenuState::Main);
                 },
                 MenuButtonAction::Quit => {
-                    app_exit_events.send(AppExit);
+                    app_exit_events.send(AppExit::Success);
                 },
             }
         }

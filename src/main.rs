@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 mod splash;
 mod menu;
@@ -15,6 +16,7 @@ enum GameState {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(WorldInspectorPlugin::default())
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_plugins(splash::splash_plugin)

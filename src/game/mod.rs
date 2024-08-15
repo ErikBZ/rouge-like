@@ -1,5 +1,5 @@
 use bevy::{prelude::*, utils:: HashSet};
-use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
+use bevy_ecs_ldtk::prelude::*;
 use level_setup::add_units_to_map;
 
 use crate::{despawn_screen, GameState};
@@ -18,18 +18,6 @@ struct Enemy;
 
 #[derive(Default, Resource)]
 pub struct MouseGridCoords(GridCoords);
-
-// NOTE: SpriteSheetBundle will handle import the sprites
-// I wonder how we can change this so that it picks up
-// custom sheets
-#[derive(Default, Bundle, LdtkEntity)]
-struct PlayerBundle {
-    player: Player,
-    #[sprite_sheet_bundle]
-    sprite_bundle: SpriteSheetBundle,
-    #[grid_coords]
-    grid_coords: GridCoords
-}
 
 #[derive(Resource, Deref, DerefMut)]
 struct GameTimer(Timer);
@@ -80,7 +68,6 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<MouseGridCoords>()
         .init_state::<ActiveGameState>()
         .register_ldtk_int_cell::<WallBundle>(1)
-        .register_ldtk_entity::<PlayerBundle>("Player")
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(GameState::Game), game_setup)
@@ -193,48 +180,11 @@ struct UnitStats {
 struct UnitBundle {
     stats: UnitStats,
     #[sprite_sheet_bundle]
-    sprite_bundle: SpriteSheetBundle,
+    sprite_bundle: LdtkSpriteSheetBundle,
     #[grid_coords]
     grid_coords: GridCoords
 }
 
 #[derive(Default, Component)]
 struct TaggedChecker;
-
-fn add_player_to_map(
-    mut commands: Commands,
-    entity_query: Query<Entity, With<LevelIid>>,
-    assert_server: Res<AssetServer>,
-    keys: Res<ButtonInput<KeyCode>>
-) {
-    if keys.just_pressed(KeyCode::KeyI) {
-        for entity in entity_query.iter() {
-            let texture = assert_server.load("player.png");
-
-            let grid_coords = GridCoords::new(3,3);
-            commands.entity(entity).with_children(|parent| {
-                parent.spawn((
-                    UnitBundle {
-                        stats: UnitStats {
-                            hp: 0,
-                            def: 0,
-                            atk: 0,
-                            spd: 0
-                        },
-                        sprite_bundle: SpriteSheetBundle{
-                            texture,
-                            transform: Transform {
-                                translation: grid_coords_to_translation(grid_coords, IVec2::splat(GRID_SIZE)).extend(2.0),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
-                        grid_coords
-                    },
-                    Player,
-                ));
-            });
-        }
-    }
-}
 

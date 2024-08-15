@@ -3,12 +3,8 @@ name = "fun-rougelike"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-bevy = { version = "0.13" }
-bevy_ecs_ldtk = { git = "https://github.com/Trouv/bevy_ecs_ldtk.git", branch = "main" }
-bevy_ecs_ldtk_macros = { git = "https://github.com/Trouv/bevy_ecs_ldtk.git", branch = "main"}
+bevy = { version = "0.14" }
+bevy_ecs_ldtk = { git = "https://github.com/Trouv/bevy_ecs_ldtk.git", version = "0.10.0" }
+bevy-inspector-egui = "0.25"
 
-[patch.crates-io]
-bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap/", branch = "main" }
