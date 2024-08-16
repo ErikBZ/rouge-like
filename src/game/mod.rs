@@ -6,9 +6,19 @@ use crate::{despawn_screen, GameState};
 mod movement;
 mod camera;
 mod level_setup;
+mod units;
+mod mouse;
 
 use movement::{add_queued_movement_target_to_entity, lerp_queued_movement};
+use mouse::*;
 use camera::*;
+
+const GRID_SIZE_VEC: IVec2 = IVec2 {
+    x: 16,
+    y: 16
+};
+
+const GRID_SIZE: i32 = 16;
 
 #[derive(Default, Component)]
 struct Player;
@@ -71,6 +81,8 @@ pub fn game_plugin(app: &mut App) {
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(GameState::Game), game_setup)
+        .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
+        .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
         .add_systems(Update, (track_mouse_coords, add_units_to_map))
         .add_systems(Update, (
             set_level_walls,
@@ -135,8 +147,6 @@ fn exit_to_menu(
     }
 }
 
-const GRID_SIZE: i32 = 16;
-
 // TODO: Do this at startup
 fn set_level_walls(
     mut level_walls: ResMut<LevelWalls>,
@@ -169,22 +179,5 @@ fn set_level_walls(
 }
 
 #[derive(Default, Component)]
-struct UnitStats {
-    hp: u32,
-    def: u32,
-    atk: u32,
-    spd: u32,
-}
-
-#[derive(Default, Bundle, LdtkEntity)]
-struct UnitBundle {
-    stats: UnitStats,
-    #[sprite_sheet_bundle]
-    sprite_bundle: LdtkSpriteSheetBundle,
-    #[grid_coords]
-    grid_coords: GridCoords
-}
-
-#[derive(Default, Component)]
-struct TaggedChecker;
+struct Selected;
 

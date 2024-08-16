@@ -90,22 +90,3 @@ pub fn get_scroll_direction(h: f32, w: f32, mouse_pos: Vec2) -> Option<Vec2> {
     }
 }
 
-pub fn track_mouse_coords(
-    mut mouse_coords: ResMut<MouseGridCoords>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<Camera>>
-) {
-    let (cam, cam_transform) = q_camera.single();
-    let window = q_window.single();
-
-    if let Some(world_pos) = window.cursor_position()
-        .and_then(|cursor| cam.viewport_to_world(cam_transform, cursor))
-        .map(|ray| ray.origin.truncate())
-    {
-        let coords: GridCoords = translation_to_grid_coords(world_pos, GRID_SIZE_VEC);
-        if coords != mouse_coords.0 {
-            mouse_coords.0 = coords;
-        }
-    }
-}
-

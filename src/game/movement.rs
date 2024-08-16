@@ -26,9 +26,7 @@ pub fn add_queued_movement_target_to_entity(
     entities: Query<(Entity, &GridCoords), With<Player>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
-
         for (entity, current_coords) in entities.iter() {
-            // let (entity, current_coords) = entities.single();
             if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, &walls, 5) {
                 let mut queue = VecDeque::from(targets);
                 queue.pop_front();
