@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils:: HashSet};
+use bevy::{prelude::*, utils:: {HashSet, HashMap}};
 use bevy_ecs_ldtk::prelude::*;
 use level_setup::add_units_to_map;
 
@@ -9,7 +9,7 @@ mod level_setup;
 mod units;
 mod mouse;
 
-use movement::{add_queued_movement_target_to_entity, lerp_queued_movement};
+use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
 use camera::*;
 
@@ -29,9 +29,6 @@ struct Enemy;
 #[derive(Default, Resource)]
 pub struct MouseGridCoords(GridCoords);
 
-#[derive(Resource, Deref, DerefMut)]
-struct GameTimer(Timer);
-
 #[derive(Default, Component, Debug)]
 struct Wall;
 
@@ -43,13 +40,6 @@ struct WallBundle {
 #[derive(Component)]
 struct OnLevelScreen;
 
-#[derive(Default, Resource)]
-struct LevelWalls {
-    wall_locations: HashSet<GridCoords>,
-    level_width: i32,
-    level_height: i32,
-}
-
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum ActiveGameState {
     #[default]
@@ -57,6 +47,13 @@ enum ActiveGameState {
     InGameMenu,
     Move,
     Attack,
+}
+
+#[derive(Default, Resource)]
+struct LevelWalls {
+    wall_locations: HashSet<GridCoords>,
+    level_width: i32,
+    level_height: i32,
 }
 
 impl LevelWalls {
@@ -69,6 +66,49 @@ impl LevelWalls {
     }
 }
 
+// Maybe use an Enum in a new struct to show Enemy/Player
+#[derive(Default, Resource)]
+struct UnitsOnMap {
+    player_units: HashMap<GridCoords, Entity>,
+    enemy_units: HashMap<GridCoords, Entity>
+}
+
+enum UnitType {
+    Player,
+    Enemy
+}
+
+impl UnitsOnMap {
+    pub fn get(&self, coords: &GridCoords) -> Option<Entity>{
+        if self.player_units.contains_key(coords) {
+            self.player_units.get(coords).copied()
+        } else if self.enemy_units.contains_key(coords) {
+            self.enemy_units.get(coords).copied()
+        } else {
+            None
+        }
+    }
+
+    pub fn remove(&mut self, coords: &GridCoords) {
+        if self.player_units.contains_key(coords) {
+            self.player_units.remove(coords);
+        } else if self.enemy_units.contains_key(coords) {
+            self.enemy_units.remove(coords);
+        }
+    }
+
+    pub fn add(&mut self, coords: &GridCoords, val: Entity, unit_type: UnitType) {
+        match unit_type {
+            UnitType::Enemy => {
+                self.enemy_units.insert(*coords, val);
+            },
+            UnitType::Player => {
+                self.player_units.insert(*coords, val);
+            }
+        }
+    }
+}
+
 pub fn game_plugin(app: &mut App) {
     // TODO: Despawn resources that won't be needed outside
     app
@@ -76,6 +116,7 @@ pub fn game_plugin(app: &mut App) {
         .insert_resource(LevelSelection::index(0))
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
+        .init_resource::<UnitsOnMap>()
         .init_state::<ActiveGameState>()
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
@@ -91,6 +132,9 @@ pub fn game_plugin(app: &mut App) {
             zoom_in_scroll_wheel,
             add_queued_movement_target_to_entity,
             lerp_queued_movement,
+            highlight_range,
+            dehilight_range,
+            select_unit
         ).run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }

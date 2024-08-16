@@ -7,6 +7,8 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 
+use super::UnitsOnMap;
+
 enum StartingLocations {
     Enemy(GridCoords),
     Player(GridCoords)
@@ -17,6 +19,7 @@ pub fn add_units_to_map(
     entity_query: Query<(Entity, &Transform, &EntityInstance), Added<EntityInstance>>,
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
+    mut units_on_map: ResMut<UnitsOnMap>,
 ) {
     for (entity, transform, entity_instance) in entity_query.iter() {
         let texture = assert_server.load("tilesets/Dungeon_Character_2.png");
@@ -32,22 +35,26 @@ pub fn add_units_to_map(
         let (atlas, stats) = match entity_instance.identifier.as_str() {
             "Enemy_Start" => {
                 commands.entity(entity).insert(Enemy);
+                let stats = UnitStats::enemy();
+                units_on_map.enemy_units.insert(grid_coords, entity);
                 (
                     TextureAtlas {
                         index: 8,
                         layout
                     },
-                    UnitStats::enemy()
+                    stats
                 )
             },
             "Player_Start" => {
                 commands.entity(entity).insert(Player);
+                let stats = UnitStats::player();
+                units_on_map.player_units.insert(grid_coords, entity);
                 (
                     TextureAtlas {
                         index: 2,
                         layout
                     },
-                    UnitStats::player()
+                    stats
                 )
             }
             _ => continue,

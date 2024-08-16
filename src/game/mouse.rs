@@ -4,6 +4,8 @@ use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::transl
 
 use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords};
 
+use super::{units::UnitStats, Selected, UnitsOnMap};
+
 #[derive(Component)]
 pub struct MouseCursor;
 
@@ -21,9 +23,7 @@ pub fn spawn_cursor_sprite(
     assert_server: Res<AssetServer>,
 ) {
     for (name, entity) in layers.iter() {
-        println!("Hello");
         if name.as_str() == "StartingLocations" {
-            println!("Runs only once");
             let texture = assert_server.load("cursor.png");
             commands.entity(entity).with_children(|parent| {
                 parent.spawn((
@@ -51,7 +51,6 @@ pub fn update_cursor_sprite(
 ) {
     for mut transform in mouse_q.iter_mut() {
         transform.translation = grid_coords_to_translation(mouse_coords.0, IVec2::splat(GRID_SIZE)).extend(2.0);
-        println!("Mouse Coords: ({}, {})", mouse_coords.0.x, mouse_coords.0.y);
     }
 }
 
@@ -70,6 +69,40 @@ pub fn track_mouse_coords(
         let coords: GridCoords = translation_to_grid_coords(world_pos, GRID_SIZE_VEC);
         if coords != mouse_coords.0 {
             mouse_coords.0 = coords;
+        }
+    }
+}
+
+pub fn update_hovered_unit(
+    units_on_map: Res<UnitsOnMap>,
+    mouse_coords: Res<MouseGridCoords>,
+    stats_q: Query<&UnitStats>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>
+) {
+    if mouse_buttons.just_pressed(MouseButton::Left) {
+        if let Some(entity) = units_on_map.get(&mouse_coords.0) {
+            let stats = match stats_q.get(entity) {
+                Ok(s) => s,
+                _ => return,
+            };
+        }
+    }
+}
+
+pub fn select_unit(
+    mut commands: Commands,
+    units_on_map: Res<UnitsOnMap>,
+    mouse_coords: Res<MouseGridCoords>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    selected_q: Query<Entity, With<Selected>>
+) {
+    if mouse_buttons.just_pressed(MouseButton::Left) && selected_q.is_empty() {
+        if let Some(entity) = units_on_map.get(&mouse_coords.0) {
+            commands.entity(entity).insert(Selected);
+        }
+    } else if mouse_buttons.just_pressed(MouseButton::Right) && !selected_q.is_empty() {
+        for entity in selected_q.iter() {
+            commands.entity(entity).remove::<Selected>();
         }
     }
 }

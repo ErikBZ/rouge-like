@@ -429,6 +429,22 @@
 							"fieldInstances": [],
 							"__worldX": 96,
 							"__worldY": 32
+						},
+						{
+							"__identifier": "Player_Start",
+							"__grid": [10,1],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 16, "x": 96, "y": 128, "w": 16, "h": 16 },
+							"__smartColor": "#BE4A2F",
+							"iid": "78ea2030-4ce0-11ef-b131-b9e58f5dfb45",
+							"width": 16,
+							"height": 16,
+							"defUid": 9,
+							"px": [160,16],
+							"fieldInstances": [],
+							"__worldX": 160,
+							"__worldY": 16
 						}
 					]
 				},

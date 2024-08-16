@@ -1,13 +1,13 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct UnitStats {
-    hp: u32,
-    def: u32,
-    atk: u32,
-    spd: u32,
-    mov: u32,
+    pub hp: u32,
+    pub def: u32,
+    pub atk: u32,
+    pub spd: u32,
+    pub mov: u32,
 }
 
 impl Default for UnitStats {
@@ -39,7 +39,7 @@ impl UnitStats {
             def: 1,
             atk: 3,
             spd: 3,
-            mov: 3,
+            mov: 2,
         }
     }
 }

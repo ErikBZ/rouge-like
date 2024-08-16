@@ -1,14 +1,7 @@
 use bevy::{input::mouse::MouseWheel, prelude::*};
 use bevy::window::PrimaryWindow;
-use bevy_ecs_ldtk::{prelude::*, utils::translation_to_grid_coords};
-
-use crate::game::MouseGridCoords;
 
 const ZOOM_SPEED: f32 = 0.02; 
-const GRID_SIZE_VEC: IVec2 = IVec2 {
-    x: 16,
-    y: 16
-};
 
 pub fn zoom_in_scroll_wheel(
     // TODO: Does this even need to be mut?

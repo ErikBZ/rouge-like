@@ -4,8 +4,9 @@ use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
 
-use crate::game::{Player, MouseGridCoords, LevelWalls};
-use crate::game::GRID_SIZE;
+use crate::game::{LevelWalls, MouseGridCoords, Selected, UnitType, GRID_SIZE, units::UnitStats};
+
+use super::UnitsOnMap;
 
 
 #[derive(Component)]
@@ -23,11 +24,13 @@ pub fn add_queued_movement_target_to_entity(
     buttons: Res<ButtonInput<MouseButton>>,
     mouse_coords: Res<MouseGridCoords>,
     walls: Res<LevelWalls>,
-    entities: Query<(Entity, &GridCoords), With<Player>>,
+    entities: Query<(Entity, &GridCoords, &UnitStats), With<Selected>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
-        for (entity, current_coords) in entities.iter() {
-            if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, &walls, 5) {
+        for (entity, current_coords, unit_stats) in entities.iter() {
+            let unit_move = unit_stats.mov.try_into().unwrap();
+
+            if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, &walls, unit_move) {
                 let mut queue = VecDeque::from(targets);
                 queue.pop_front();
                 commands.entity(entity).insert(QueuedMovementTarget {
@@ -41,8 +44,6 @@ pub fn add_queued_movement_target_to_entity(
         }
     }
 }
-
-
 
 fn manhattan_dist(start: GridCoords, end: GridCoords) -> i32 {
     (end.x - start.x).abs() + (end.y - start.y).abs()
@@ -91,7 +92,8 @@ fn get_movement_path(
         };
 
         if curr == target_coords {
-            return Some(resolve_path(came_from, curr));
+            let res = resolve_path(came_from, curr);
+            return Some(res);
         }
 
         for next_coord in get_neighbors(curr) {
@@ -100,7 +102,7 @@ fn get_movement_path(
             }
 
             if let Some(curr_g_score) = g_scores.get(&curr) {
-                if *curr_g_score > max_dist {
+                if *curr_g_score >= max_dist {
                     break;
                 }
 
@@ -158,6 +160,7 @@ fn get_neighbors(center: GridCoords) -> Vec<GridCoords> {
 pub fn lerp_queued_movement(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
+    mut units_on_map: ResMut<UnitsOnMap>,
     time: Res<Time>
 ) {
     for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
@@ -195,6 +198,28 @@ pub fn lerp_queued_movement(
             target.time.tick(time.delta());
         } else {
             commands.entity(entity).remove::<QueuedMovementTarget>();
+            commands.entity(entity).remove::<Selected>();
+            units_on_map.remove(&coords);
+            units_on_map.add(&coords, entity, UnitType::Player);
+        }
+    }
+}
+
+pub fn highlight_range(
+    coords_q: Query<&GridCoords, Added<Selected>>
+) {
+    for coords in coords_q.iter() {
+        // println!("Highlight starting at: ({}, {})", coords.x, coords.y);
+    }
+}
+
+pub fn dehilight_range(
+    mut removals: RemovedComponents<Selected>,
+    coords_q: Query<&GridCoords>
+) {
+    for entity in removals.read() {
+        if let Ok(coords) = coords_q.get(entity) {
+            // println!("Dehighlighting at: ({}, {})", coords.x, coords.y);
         }
     }
 }
