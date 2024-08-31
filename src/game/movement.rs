@@ -6,7 +6,7 @@ use std::collections::BinaryHeap;
 
 use crate::game::{LevelWalls, MouseGridCoords, Selected, UnitType, GRID_SIZE, units::UnitStats};
 
-use super::UnitsOnMap;
+use super::{Teams, UnitsOnMap};
 
 
 #[derive(Component)]
@@ -21,6 +21,7 @@ pub struct QueuedMovementTarget {
 
 pub fn add_queued_movement_target_to_entity(
     mut commands: Commands,
+    player_team_q: Query<&Teams>,
     buttons: Res<ButtonInput<MouseButton>>,
     mouse_coords: Res<MouseGridCoords>,
     walls: Res<LevelWalls>,
@@ -28,6 +29,10 @@ pub fn add_queued_movement_target_to_entity(
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         for (entity, current_coords, unit_stats) in entities.iter() {
+            if player_team_q.single().contains(&entity) {
+                return;
+            }
+
             let unit_move = unit_stats.mov.try_into().unwrap();
 
             if let Some(targets) = get_movement_path(mouse_coords.0, *current_coords, &walls, unit_move) {
@@ -161,6 +166,7 @@ pub fn lerp_queued_movement(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
     mut units_on_map: ResMut<UnitsOnMap>,
+    mut player_team_q: Query<&mut Teams>,
     time: Res<Time>
 ) {
     for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
@@ -201,6 +207,8 @@ pub fn lerp_queued_movement(
             commands.entity(entity).remove::<Selected>();
             units_on_map.remove(&coords);
             units_on_map.add(&coords, entity, UnitType::Player);
+            let mut team = player_team_q.single_mut();
+            team.add(entity);
         }
     }
 }
@@ -208,8 +216,7 @@ pub fn lerp_queued_movement(
 pub fn highlight_range(
     coords_q: Query<&GridCoords, Added<Selected>>
 ) {
-    for coords in coords_q.iter() {
-        // println!("Highlight starting at: ({}, {})", coords.x, coords.y);
+    for _coords in coords_q.iter() {
     }
 }
 
@@ -218,8 +225,7 @@ pub fn dehilight_range(
     coords_q: Query<&GridCoords>
 ) {
     for entity in removals.read() {
-        if let Ok(coords) = coords_q.get(entity) {
-            // println!("Dehighlighting at: ({}, {})", coords.x, coords.y);
+        if let Ok(_coords) = coords_q.get(entity) {
         }
     }
 }

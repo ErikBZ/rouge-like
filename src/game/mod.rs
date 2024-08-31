@@ -12,6 +12,7 @@ mod mouse;
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
 use camera::*;
+use units::*;
 
 const GRID_SIZE_VEC: IVec2 = IVec2 {
     x: 16,
@@ -44,9 +45,11 @@ struct OnLevelScreen;
 enum ActiveGameState {
     #[default]
     Select,
-    InGameMenu,
-    Move,
-    Attack,
+    _InGameMenu,
+    _Move,
+    _Attack,
+    TransitionAnimation,
+    EnemyTurn,
 }
 
 #[derive(Default, Resource)]
@@ -107,6 +110,11 @@ impl UnitsOnMap {
             }
         }
     }
+
+    pub fn clear(&mut self) {
+        self.player_units.clear();
+        self.enemy_units.clear();
+    }
 }
 
 pub fn game_plugin(app: &mut App) {
@@ -139,26 +147,26 @@ pub fn game_plugin(app: &mut App) {
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
 
-fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
-    move |current_state: Option<Res<State<S>>>, current_state_two: Option<Res<State<T>>>| match current_state {
-        Some(current_state) => match current_state_two {
-            Some(current_state_two) => *current_state == state && *current_state_two == state_two,
-            None => false
-        },
-        None => {
-            warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
-                    let debug_state = format!("{state:?}");
-                    let result = debug_state
-                        .split("::")
-                        .next()
-                        .unwrap_or("Unknown State Type");
-                    result.to_string()
-                });
-
-            false
-        }
-    }
-}
+// fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
+//     move |current_state: Option<Res<State<S>>>, current_state_two: Option<Res<State<T>>>| match current_state {
+//         Some(current_state) => match current_state_two {
+//             Some(current_state_two) => *current_state == state && *current_state_two == state_two,
+//             None => false
+//         },
+//         None => {
+//             warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
+//                     let debug_state = format!("{state:?}");
+//                     let result = debug_state
+//                         .split("::")
+//                         .next()
+//                         .unwrap_or("Unknown State Type");
+//                     result.to_string()
+//                 });
+//
+//             false
+//         }
+//     }
+// }
 
 // NOTE: Camera does not implement the trait bounds, but &Camera does?
 fn game_setup(
@@ -174,6 +182,11 @@ fn game_setup(
         OnLevelScreen
     ));
 
+    commands.spawn((
+        Teams::new(),
+        OnLevelScreen
+    ));
+
     // TODO: Remove the transform stuff here since it's
     // not needed anymore
     let (mut transform, mut proj) = q.single_mut();
@@ -184,8 +197,10 @@ fn game_setup(
 
 fn exit_to_menu(
     mut game_state: ResMut<NextState<GameState>>,
-    keys: Res<ButtonInput<KeyCode>>
+    keys: Res<ButtonInput<KeyCode>>,
+    mut map: ResMut<UnitsOnMap>
 ) {
+    map.clear();
     if keys.pressed(KeyCode::Escape) {
         game_state.set(GameState::Menu);
     }
@@ -225,3 +240,8 @@ fn set_level_walls(
 #[derive(Default, Component)]
 struct Selected;
 
+fn turn_ending_animation(
+
+) {
+    todo!()
+}

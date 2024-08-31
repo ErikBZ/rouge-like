@@ -9,10 +9,10 @@ use crate::game::GRID_SIZE;
 
 use super::UnitsOnMap;
 
-enum StartingLocations {
-    Enemy(GridCoords),
-    Player(GridCoords)
-}
+// enum StartingLocations {
+//     Enemy(GridCoords),
+//     Player(GridCoords)
+// }
 
 pub fn add_units_to_map(
     mut commands: Commands,

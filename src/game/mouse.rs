@@ -4,7 +4,7 @@ use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::transl
 
 use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords};
 
-use super::{units::UnitStats, Selected, UnitsOnMap};
+use super::{units::UnitStats, Selected, Teams, UnitsOnMap};
 
 #[derive(Component)]
 pub struct MouseCursor;
@@ -73,7 +73,7 @@ pub fn track_mouse_coords(
     }
 }
 
-pub fn update_hovered_unit(
+pub fn _update_hovered_unit(
     units_on_map: Res<UnitsOnMap>,
     mouse_coords: Res<MouseGridCoords>,
     stats_q: Query<&UnitStats>,
@@ -81,12 +81,13 @@ pub fn update_hovered_unit(
 ) {
     if mouse_buttons.just_pressed(MouseButton::Left) {
         if let Some(entity) = units_on_map.get(&mouse_coords.0) {
-            let stats = match stats_q.get(entity) {
+            let _stats = match stats_q.get(entity) {
                 Ok(s) => s,
                 _ => return,
             };
         }
     }
+    // TODO: Add code to update UI
 }
 
 pub fn select_unit(
@@ -94,11 +95,23 @@ pub fn select_unit(
     units_on_map: Res<UnitsOnMap>,
     mouse_coords: Res<MouseGridCoords>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
-    selected_q: Query<Entity, With<Selected>>
+    selected_q: Query<Entity, With<Selected>>,
+    teams_q: Query<&Teams>
 ) {
-    if mouse_buttons.just_pressed(MouseButton::Left) && selected_q.is_empty() {
+    let teams = teams_q.single();
+
+    // TODO: This looks horrendous
+    if mouse_buttons.just_pressed(MouseButton::Left) {
         if let Some(entity) = units_on_map.get(&mouse_coords.0) {
-            commands.entity(entity).insert(Selected);
+            if !teams.contains(&entity) {
+                commands.entity(entity).insert(Selected);
+                println!("{:?}", entity);
+                if !selected_q.is_empty() {
+                    for e in selected_q.iter() {
+                        commands.entity(e).remove::<Selected>();
+                    }
+                }
+            }
         }
     } else if mouse_buttons.just_pressed(MouseButton::Right) && !selected_q.is_empty() {
         for entity in selected_q.iter() {
@@ -106,4 +119,5 @@ pub fn select_unit(
         }
     }
 }
+
 

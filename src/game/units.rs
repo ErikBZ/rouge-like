@@ -1,5 +1,53 @@
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashSet;
 use bevy_ecs_ldtk::prelude::*;
+
+use super::{ActiveGameState, Player};
+
+#[derive(Default, Component)]
+pub struct Teams {
+    moved_player_units: HashSet<Entity>,
+}
+
+impl Teams {
+    pub fn new() -> Self {
+        Teams {
+            moved_player_units: HashSet::new(),
+        }
+    }
+
+    pub fn add(&mut self, entity: Entity) {
+        self.moved_player_units.insert(entity);
+    }
+
+    pub fn contains(&self, entity: &Entity) -> bool {
+        self.moved_player_units.contains(entity)
+    }
+    
+    pub fn count(&self) -> usize {
+        self.moved_player_units.len()
+    }
+
+    // pub fn clear(&mut self) {
+    //     self.moved_player_units.clear();
+    // }
+}
+
+// TODO: player_team_q should probably be a different name
+pub fn check_for_team_refresh(
+    team_q: Query<&Teams>,
+    player_q: Query<&Player>,
+    mut active_game_state: ResMut<NextState<ActiveGameState>>
+) {
+    let team = team_q.single();
+    let num_of_players = player_q.iter().len();
+
+    if num_of_players == team.count() {
+        // should I send an event or just queue the stuff here?
+        println!("Hello");
+        active_game_state.set(ActiveGameState::EnemyTurn);
+    }
+}
 
 #[derive(Component, Debug)]
 pub struct UnitStats {
@@ -48,5 +96,5 @@ impl UnitStats {
 pub struct UnitBundle {
     pub stats: UnitStats,
     #[grid_coords]
-    pub grid_coords: GridCoords
+    pub grid_coords: GridCoords,
 }
