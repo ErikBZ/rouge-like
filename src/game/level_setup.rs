@@ -65,13 +65,9 @@ pub fn add_units_to_map(
                 stats,
                 grid_coords
             },
-            LdtkSpriteSheetBundle {
-                sprite_bundle: SpriteBundle {
-                    texture,
-                    transform: *transform,
-                    ..Default::default()
-                },
-                texture_atlas: atlas,
+            Sprite {
+                image: texture,
+                texture_atlas: Some(atlas),
                 ..Default::default()
             },
         ));

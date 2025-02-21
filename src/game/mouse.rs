@@ -27,15 +27,12 @@ pub fn spawn_cursor_sprite(
             let texture = assert_server.load("cursor.png");
             commands.entity(entity).with_children(|parent| {
                 parent.spawn((
-                    LdtkSpriteSheetBundle{
-                        sprite_bundle: SpriteBundle {
-                            texture,
-                            transform: Transform {
-                                translation: grid_coords_to_translation(mouse_coords.0, IVec2::splat(GRID_SIZE)).extend(2.0),
-                                ..Default::default()
-                            },
-                            ..Default::default()
-                        },
+                    //Transform {
+                    //    translation: grid_coords_to_translation(mouse_coords.0, IVec2::splat(GRID_SIZE)).extend(2.0),
+                    //    ..Default::default()
+                    //},
+                    Sprite {
+                        image: texture,
                         ..Default::default()
                     },
                     MouseCursor
@@ -63,7 +60,7 @@ pub fn track_mouse_coords(
     let window = q_window.single();
 
     if let Some(world_pos) = window.cursor_position()
-        .and_then(|cursor| cam.viewport_to_world(cam_transform, cursor))
+        .and_then(|cursor| cam.viewport_to_world(cam_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
     {
         let coords: GridCoords = translation_to_grid_coords(world_pos, GRID_SIZE_VEC);

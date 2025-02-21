@@ -1,5 +1,6 @@
 use bevy::{prelude::*, utils:: {HashSet, HashMap}};
 use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_ldtk::LdtkProjectHandle;
 use level_setup::add_units_to_map;
 
 use crate::{despawn_screen, GameState};
@@ -176,7 +177,7 @@ fn game_setup(
 ) {
     commands.spawn((
         LdtkWorldBundle {
-            ldtk_handle: assert_server.load("test_level.ldtk"),
+            ldtk_handle: LdtkProjectHandle { handle: assert_server.load("test_level.ldtk")},
             ..Default::default()
         },
         OnLevelScreen
@@ -212,7 +213,7 @@ fn set_level_walls(
     mut level_events: EventReader<LevelEvent>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
-    ldtk_project_entities: Query<&Handle<LdtkProject>>,
+    ldtk_project_entities: Query<&LdtkProjectHandle>,
     ldtk_project_assets: Res<Assets<LdtkProject>>,
 ) {
     for level_event in level_events.read() {

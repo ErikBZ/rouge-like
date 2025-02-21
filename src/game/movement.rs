@@ -171,7 +171,7 @@ pub fn lerp_queued_movement(
 ) {
     for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
         if let Some(dest_target) = target.targets.get(0) {
-            let time_delta = time.delta_seconds();
+            let time_delta = time.delta_secs();
             let origin: IVec2 = IVec2::from(*coords);
             let dest: IVec2 = IVec2::from(*dest_target);
             let direction = dest.sub(origin).as_vec2().normalize() * (time_delta * target.speed);
