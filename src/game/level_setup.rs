@@ -14,6 +14,7 @@ use super::UnitsOnMap;
 //     Player(GridCoords)
 // }
 
+// TODO: Units On Map HashMap is empty when I try to select and move units around
 pub fn add_units_to_map(
     mut commands: Commands,
     entity_query: Query<(Entity, &Transform, &EntityInstance), Added<EntityInstance>>,
@@ -70,6 +71,7 @@ pub fn add_units_to_map(
                 texture_atlas: Some(atlas),
                 ..Default::default()
             },
+            *transform,
         ));
     }
 }

@@ -44,7 +44,6 @@ pub fn check_for_team_refresh(
 
     if num_of_players == team.count() {
         // should I send an event or just queue the stuff here?
-        println!("Hello");
         active_game_state.set(ActiveGameState::EnemyTurn);
     }
 }

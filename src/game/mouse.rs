@@ -27,10 +27,10 @@ pub fn spawn_cursor_sprite(
             let texture = assert_server.load("cursor.png");
             commands.entity(entity).with_children(|parent| {
                 parent.spawn((
-                    //Transform {
-                    //    translation: grid_coords_to_translation(mouse_coords.0, IVec2::splat(GRID_SIZE)).extend(2.0),
-                    //    ..Default::default()
-                    //},
+                    Transform {
+                        translation: grid_coords_to_translation(mouse_coords.0, IVec2::splat(GRID_SIZE)).extend(2.0),
+                        ..Default::default()
+                    },
                     Sprite {
                         image: texture,
                         ..Default::default()
@@ -102,7 +102,6 @@ pub fn select_unit(
         if let Some(entity) = units_on_map.get(&mouse_coords.0) {
             if !teams.contains(&entity) {
                 commands.entity(entity).insert(Selected);
-                println!("{:?}", entity);
                 if !selected_q.is_empty() {
                     for e in selected_q.iter() {
                         commands.entity(e).remove::<Selected>();
