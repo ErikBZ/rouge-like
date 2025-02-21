@@ -6,6 +6,7 @@ use crate::game::units::{UnitStats, UnitBundle};
 use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
+use crate::game::UnitType;
 
 use super::UnitsOnMap;
 
@@ -38,6 +39,7 @@ pub fn add_units_to_map(
                 commands.entity(entity).insert(Enemy);
                 let stats = UnitStats::enemy();
                 units_on_map.enemy_units.insert(grid_coords, entity);
+                units_on_map.add(&grid_coords, entity, UnitType::Enemy);
                 (
                     TextureAtlas {
                         index: 8,
@@ -49,7 +51,7 @@ pub fn add_units_to_map(
             "Player_Start" => {
                 commands.entity(entity).insert(Player);
                 let stats = UnitStats::player();
-                units_on_map.player_units.insert(grid_coords, entity);
+                units_on_map.add(&grid_coords, entity, UnitType::Player);
                 (
                     TextureAtlas {
                         index: 2,
