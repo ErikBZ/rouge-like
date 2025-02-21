@@ -1,5 +1,6 @@
 use bevy::{prelude::*, utils:: {HashSet, HashMap}};
 use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_ldtk::LdtkProjectHandle;
 use level_setup::add_units_to_map;
 
 use crate::{despawn_screen, GameState};
@@ -27,7 +28,7 @@ struct Player;
 #[derive(Default, Component)]
 struct Enemy;
 
-#[derive(Default, Resource)]
+#[derive(Default, Resource, Debug)]
 pub struct MouseGridCoords(GridCoords);
 
 #[derive(Default, Component, Debug)]
@@ -70,7 +71,7 @@ impl LevelWalls {
 }
 
 // Maybe use an Enum in a new struct to show Enemy/Player
-#[derive(Default, Resource)]
+#[derive(Default, Resource, Debug)]
 struct UnitsOnMap {
     player_units: HashMap<GridCoords, Entity>,
     enemy_units: HashMap<GridCoords, Entity>
@@ -176,7 +177,7 @@ fn game_setup(
 ) {
     commands.spawn((
         LdtkWorldBundle {
-            ldtk_handle: assert_server.load("test_level.ldtk"),
+            ldtk_handle: LdtkProjectHandle { handle: assert_server.load("test_level.ldtk")},
             ..Default::default()
         },
         OnLevelScreen
@@ -200,8 +201,8 @@ fn exit_to_menu(
     keys: Res<ButtonInput<KeyCode>>,
     mut map: ResMut<UnitsOnMap>
 ) {
-    map.clear();
     if keys.pressed(KeyCode::Escape) {
+        map.clear();
         game_state.set(GameState::Menu);
     }
 }
@@ -212,7 +213,7 @@ fn set_level_walls(
     mut level_events: EventReader<LevelEvent>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
-    ldtk_project_entities: Query<&Handle<LdtkProject>>,
+    ldtk_project_entities: Query<&LdtkProjectHandle>,
     ldtk_project_assets: Res<Assets<LdtkProject>>,
 ) {
     for level_event in level_events.read() {
@@ -240,8 +241,6 @@ fn set_level_walls(
 #[derive(Default, Component)]
 struct Selected;
 
-fn turn_ending_animation(
-
-) {
+fn turn_ending_animation() {
     todo!()
 }
