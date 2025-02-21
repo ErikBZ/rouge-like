@@ -201,8 +201,8 @@ fn exit_to_menu(
     keys: Res<ButtonInput<KeyCode>>,
     mut map: ResMut<UnitsOnMap>
 ) {
-    map.clear();
     if keys.pressed(KeyCode::Escape) {
+        map.clear();
         game_state.set(GameState::Menu);
     }
 }
