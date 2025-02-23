@@ -7,6 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
+use super::ActiveGameState;
 
 use super::UnitsOnMap;
 
@@ -78,3 +79,21 @@ pub fn add_units_to_map(
     }
 }
 
+// TOOD: Move this over to game/ui.rs
+pub fn setup_transition_animation(mut _commands: Commands) {
+    println!("Setting up transition animation")
+}
+
+pub fn transition_animation(
+    mut _commands: Commands,
+    mut active_game_state: ResMut<NextState<ActiveGameState>>,
+    current_game_state: Res<State<ActiveGameState>>,
+) {
+    if *current_game_state.get() == ActiveGameState::ToPlayerTurn {
+        println!("Going to Player!");
+        active_game_state.set(ActiveGameState::Select)
+    } else if *current_game_state.get() == ActiveGameState::ToEnemyTurn {
+        println!("Going to Team!");
+        active_game_state.set(ActiveGameState::EnemyTurn)
+    }
+}

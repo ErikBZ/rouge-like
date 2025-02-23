@@ -42,15 +42,29 @@ struct WallBundle {
 #[derive(Component)]
 struct OnLevelScreen;
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
+#[source(GameState = GameState::Game)]
+// TODO: Create a top level State and per turn state.
 enum ActiveGameState {
+    // Player Actions
     #[default]
     Select,
     _InGameMenu,
     _Move,
     _Attack,
-    TransitionAnimation,
+    // Transitions
+    ToEnemyTurn,
+    ToPlayerTurn,
+    // Enemy
     EnemyTurn,
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
+#[source(ActiveGameState = ActiveGameState::Select)]
+enum FakeState {
+    #[default]
+    Hello,
+    Hi
 }
 
 #[derive(Default, Resource)]
@@ -126,7 +140,8 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
-        .init_state::<ActiveGameState>()
+        .add_sub_state::<ActiveGameState>()
+        .add_sub_state::<FakeState>()
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
@@ -143,9 +158,18 @@ pub fn game_plugin(app: &mut App) {
             lerp_queued_movement,
             highlight_range,
             dehilight_range,
-            select_unit
+            select_unit,
+            check_for_team_refresh,
+            level_setup::transition_animation
         ).run_if(in_state(GameState::Game)))
+        .add_systems(Update, (print_log).run_if(in_state(FakeState::Hello)))
+        .add_systems(OnEnter(ActiveGameState::ToEnemyTurn), level_setup::setup_transition_animation)
+        .add_systems(OnEnter(ActiveGameState::ToPlayerTurn), level_setup::setup_transition_animation)
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
+}
+
+fn print_log() {
+    println!("HELLO IT'S WORKING");
 }
 
 // fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
