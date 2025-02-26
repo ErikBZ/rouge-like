@@ -1,7 +1,7 @@
 use bevy::{prelude::*, utils:: {HashSet, HashMap}};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
-use level_setup::add_units_to_map;
+use level_setup::init_units_on_map;
 
 use crate::{despawn_screen, GameState};
 mod movement;
@@ -15,12 +15,12 @@ use mouse::*;
 use camera::*;
 use units::*;
 
+const REQUIRED_COMPONENTS: u32 = 2;
+const GRID_SIZE: i32 = 16;
 const GRID_SIZE_VEC: IVec2 = IVec2 {
     x: 16,
     y: 16
 };
-
-const GRID_SIZE: i32 = 16;
 
 #[derive(Default, Component)]
 struct Player;
@@ -48,6 +48,7 @@ struct OnLevelScreen;
 enum ActiveGameState {
     // Player Actions
     #[default]
+    Loading,
     Select,
     _InGameMenu,
     _Move,
@@ -59,20 +60,15 @@ enum ActiveGameState {
     EnemyTurn,
 }
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
-#[source(ActiveGameState = ActiveGameState::Select)]
-enum FakeState {
-    #[default]
-    Hello,
-    Hi
-}
-
 #[derive(Default, Resource)]
 struct LevelWalls {
     wall_locations: HashSet<GridCoords>,
     level_width: i32,
     level_height: i32,
 }
+
+#[derive(Default, Resource, Debug)]
+struct InitComponentsLoaded(u32);
 
 impl LevelWalls {
     fn in_wall(&self, grid_coords: &GridCoords) -> bool {
@@ -140,17 +136,21 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
+        .init_resource::<InitComponentsLoaded>()
         .add_sub_state::<ActiveGameState>()
-        .add_sub_state::<FakeState>()
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
-        .add_systems(OnEnter(GameState::Game), game_setup)
+        .add_systems(OnEnter(ActiveGameState::Loading), init_game)
+        .add_systems(Update, (
+            init_level_walls, 
+            init_units_on_map, 
+            transition_to_game
+        ).run_if(in_state(ActiveGameState::Loading)))
         .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
         .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
-        .add_systems(Update, (track_mouse_coords, add_units_to_map))
+        .add_systems(Update, track_mouse_coords)
         .add_systems(Update, (
-            set_level_walls,
             exit_to_menu,
             move_screen_rts,
             zoom_in_scroll_wheel,
@@ -161,15 +161,20 @@ pub fn game_plugin(app: &mut App) {
             select_unit,
             check_for_team_refresh,
             level_setup::transition_animation
-        ).run_if(in_state(GameState::Game)))
-        .add_systems(Update, (print_log).run_if(in_state(FakeState::Hello)))
+        ).run_if(in_state(ActiveGameState::Select)))
         .add_systems(OnEnter(ActiveGameState::ToEnemyTurn), level_setup::setup_transition_animation)
         .add_systems(OnEnter(ActiveGameState::ToPlayerTurn), level_setup::setup_transition_animation)
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
 }
 
-fn print_log() {
-    println!("HELLO IT'S WORKING");
+fn transition_to_game(
+    mut state: ResMut<NextState<ActiveGameState>>,
+    components_loaded: Res<InitComponentsLoaded>
+) {
+    if components_loaded.0 >= REQUIRED_COMPONENTS {
+        println!("HELLO GOING TO SELECT");
+        state.set(ActiveGameState::Select);
+    }
 }
 
 // fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
@@ -193,8 +198,9 @@ fn print_log() {
 //     }
 // }
 
-// NOTE: Camera does not implement the trait bounds, but &Camera does?
-fn game_setup(
+// Loads the given ldtk file
+// Must run before init_level_walls and init_units_on_map
+fn init_game(
     mut commands: Commands, 
     assert_server: Res<AssetServer>, 
     mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
@@ -232,16 +238,20 @@ fn exit_to_menu(
 }
 
 // TODO: Do this at startup
-fn set_level_walls(
+fn init_level_walls(
     mut level_walls: ResMut<LevelWalls>,
     mut level_events: EventReader<LevelEvent>,
+    mut components_loaded: ResMut<InitComponentsLoaded>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
     ldtk_project_entities: Query<&LdtkProjectHandle>,
     ldtk_project_assets: Res<Assets<LdtkProject>>,
 ) {
+    let mut loaded_walls = false;
     for level_event in level_events.read() {
         if let LevelEvent::Spawned(level_iid) = level_event {
+            loaded_walls = true;
+
             let ldtk_project = ldtk_project_assets
                 .get(ldtk_project_entities.single())
                 .expect("LdtkProject should be loaded when level is spawned");
@@ -259,6 +269,9 @@ fn set_level_walls(
 
             *level_walls = new_level_walls;
         }
+    }
+    if loaded_walls {
+        components_loaded.0 += 1;
     }
 }
 

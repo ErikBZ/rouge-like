@@ -7,7 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
-use super::ActiveGameState;
+use super::{ActiveGameState, InitComponentsLoaded};
 
 use super::UnitsOnMap;
 
@@ -16,15 +16,17 @@ use super::UnitsOnMap;
 //     Player(GridCoords)
 // }
 
-// TODO: Units On Map HashMap is empty when I try to select and move units around
-pub fn add_units_to_map(
+pub fn init_units_on_map(
     mut commands: Commands,
+    mut components_loaded: ResMut<InitComponentsLoaded>,
     entity_query: Query<(Entity, &Transform, &EntityInstance), Added<EntityInstance>>,
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut units_on_map: ResMut<UnitsOnMap>,
 ) {
+    let mut units_loaded = false;
     for (entity, transform, entity_instance) in entity_query.iter() {
+        units_loaded = true;
         let texture = assert_server.load("tilesets/Dungeon_Character_2.png");
         let grid_coords = translation_to_grid_coords(transform.translation.xy(), IVec2::splat(GRID_SIZE));
         let layout = texture_atlases.add(TextureAtlasLayout::from_grid(
@@ -76,6 +78,10 @@ pub fn add_units_to_map(
             },
             *transform,
         ));
+    }
+
+    if units_loaded {
+        components_loaded.0 += 1;
     }
 }
 
