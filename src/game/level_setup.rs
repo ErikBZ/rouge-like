@@ -7,6 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
+use super::{ActiveGameState, InitComponentsLoaded, PlayerTurnLabel};
 
 use super::UnitsOnMap;
 
@@ -15,15 +16,17 @@ use super::UnitsOnMap;
 //     Player(GridCoords)
 // }
 
-// TODO: Units On Map HashMap is empty when I try to select and move units around
-pub fn add_units_to_map(
+pub fn init_units_on_map(
     mut commands: Commands,
+    mut components_loaded: ResMut<InitComponentsLoaded>,
     entity_query: Query<(Entity, &Transform, &EntityInstance), Added<EntityInstance>>,
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut units_on_map: ResMut<UnitsOnMap>,
 ) {
+    let mut units_loaded = false;
     for (entity, transform, entity_instance) in entity_query.iter() {
+        units_loaded = true;
         let texture = assert_server.load("tilesets/Dungeon_Character_2.png");
         let grid_coords = translation_to_grid_coords(transform.translation.xy(), IVec2::splat(GRID_SIZE));
         let layout = texture_atlases.add(TextureAtlasLayout::from_grid(
@@ -36,6 +39,7 @@ pub fn add_units_to_map(
 
         let (atlas, stats) = match entity_instance.identifier.as_str() {
             "Enemy_Start" => {
+                println!("Adding Enemy Entity!");
                 commands.entity(entity).insert(Enemy);
                 let stats = UnitStats::enemy();
                 units_on_map.enemy_units.insert(grid_coords, entity);
@@ -49,6 +53,7 @@ pub fn add_units_to_map(
                 )
             },
             "Player_Start" => {
+                println!("Adding Player Entity!");
                 commands.entity(entity).insert(Player);
                 let stats = UnitStats::player();
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
@@ -76,5 +81,41 @@ pub fn add_units_to_map(
             *transform,
         ));
     }
+
+    if units_loaded {
+        components_loaded.0 += 1;
+    }
 }
 
+// TOOD: Move this over to game/ui.rs
+pub fn setup_transition_animation(
+    mut _commands: Commands,
+    active_game_state: Res<State<ActiveGameState>>,
+    mut entities: Query<(Entity, &Node, &mut TextSpan), With<PlayerTurnLabel>>,
+) {
+    println!("Setting up transition animation");
+    println!("{:?}", active_game_state.get());
+    for (entity, node, mut text) in entities.iter_mut() {
+        println!("HELLO THIS IS A THING");
+        **text = format!("SOMETHING ELSE");
+        match active_game_state.get() {
+            ActiveGameState::ToEnemyTurn => **text = format!("ENEMY TURN"),
+            ActiveGameState::ToPlayerTurn => **text = format!("PLAYER TURN"),
+            _ => (),
+        }
+    }
+}
+
+pub fn transition_animation(
+    mut _commands: Commands,
+    mut active_game_state: ResMut<NextState<ActiveGameState>>,
+    current_game_state: Res<State<ActiveGameState>>,
+) {
+    if *current_game_state.get() == ActiveGameState::ToPlayerTurn {
+        println!("Going to Player!");
+        active_game_state.set(ActiveGameState::Select)
+    } else if *current_game_state.get() == ActiveGameState::ToEnemyTurn {
+        println!("Going to Enemy Team!");
+        active_game_state.set(ActiveGameState::EnemyTurn)
+    }
+}

@@ -34,7 +34,7 @@ pub fn zoom_in_scroll_wheel(
 }
 
 // TODO: scroll harder the closer you are to the edge
-const EDGE_SCROLL_DIST: f32 = 120.;
+const EDGE_SCROLL_DIST: f32 = 40.;
 // TODO: Scale speed based on zoom in
 const EDGE_SCROLL_SPEED: f32 = 5.;
 

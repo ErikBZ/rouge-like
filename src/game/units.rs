@@ -4,6 +4,7 @@ use bevy_ecs_ldtk::prelude::*;
 
 use super::{ActiveGameState, Player};
 
+// TODO: This should have a different name
 #[derive(Default, Component)]
 pub struct Teams {
     moved_player_units: HashSet<Entity>,
@@ -23,28 +24,32 @@ impl Teams {
     pub fn contains(&self, entity: &Entity) -> bool {
         self.moved_player_units.contains(entity)
     }
-    
+
     pub fn count(&self) -> usize {
         self.moved_player_units.len()
     }
 
-    // pub fn clear(&mut self) {
-    //     self.moved_player_units.clear();
-    // }
+    pub fn clear(&mut self) {
+        self.moved_player_units.clear();
+    }
 }
 
 // TODO: player_team_q should probably be a different name
+// This gets procced a couple times at the start. Need to only run once
+// we are sure the player is running their turn
+// This should be called something else lol
 pub fn check_for_team_refresh(
     team_q: Query<&Teams>,
     player_q: Query<&Player>,
-    mut active_game_state: ResMut<NextState<ActiveGameState>>
+    mut active_game_state: ResMut<NextState<ActiveGameState>>,
 ) {
     let team = team_q.single();
     let num_of_players = player_q.iter().len();
 
     if num_of_players == team.count() {
         // should I send an event or just queue the stuff here?
-        active_game_state.set(ActiveGameState::EnemyTurn);
+        println!("Transition is getting procced");
+        active_game_state.set(ActiveGameState::ToEnemyTurn);
     }
 }
 
