@@ -195,7 +195,7 @@ fn transition_to_game(
     components_loaded: Res<InitComponentsLoaded>
 ) {
     if components_loaded.0 >= REQUIRED_COMPONENTS {
-        println!("HELLO GOING TO SELECT");
+        info!("Starting game and transition over to select state");
         state.set(ActiveGameState::Select);
     }
 }
@@ -317,7 +317,7 @@ fn init_level_walls(
 fn enemy_turn(
     mut game: ResMut<NextState<ActiveGameState>>
 ) {
-    println!("IT'S THE ENEMIES TURN");
+    info!("Calculating the enemies turn");
     game.set(ActiveGameState::ToPlayerTurn);
 }
 

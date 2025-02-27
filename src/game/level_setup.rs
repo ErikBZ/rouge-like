@@ -39,7 +39,6 @@ pub fn init_units_on_map(
 
         let (atlas, stats) = match entity_instance.identifier.as_str() {
             "Enemy_Start" => {
-                println!("Adding Enemy Entity!");
                 commands.entity(entity).insert(Enemy);
                 let stats = UnitStats::enemy();
                 units_on_map.enemy_units.insert(grid_coords, entity);
@@ -53,7 +52,6 @@ pub fn init_units_on_map(
                 )
             },
             "Player_Start" => {
-                println!("Adding Player Entity!");
                 commands.entity(entity).insert(Player);
                 let stats = UnitStats::player();
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
@@ -93,11 +91,8 @@ pub fn setup_transition_animation(
     active_game_state: Res<State<ActiveGameState>>,
     mut entities: Query<(Entity, &Node, &mut TextSpan), With<PlayerTurnLabel>>,
 ) {
-    println!("Setting up transition animation");
-    println!("{:?}", active_game_state.get());
+    info!("Setting up transition animation");
     for (entity, node, mut text) in entities.iter_mut() {
-        println!("HELLO THIS IS A THING");
-        **text = format!("SOMETHING ELSE");
         match active_game_state.get() {
             ActiveGameState::ToEnemyTurn => **text = format!("ENEMY TURN"),
             ActiveGameState::ToPlayerTurn => **text = format!("PLAYER TURN"),
@@ -112,10 +107,10 @@ pub fn transition_animation(
     current_game_state: Res<State<ActiveGameState>>,
 ) {
     if *current_game_state.get() == ActiveGameState::ToPlayerTurn {
-        println!("Going to Player!");
+        info!("Transitioning to player's turn");
         active_game_state.set(ActiveGameState::Select)
     } else if *current_game_state.get() == ActiveGameState::ToEnemyTurn {
-        println!("Going to Enemy Team!");
+        info!("Transitioning to enemy's turn");
         active_game_state.set(ActiveGameState::EnemyTurn)
     }
 }

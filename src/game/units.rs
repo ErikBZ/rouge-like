@@ -48,7 +48,6 @@ pub fn check_for_team_refresh(
 
     if num_of_players == team.count() {
         // should I send an event or just queue the stuff here?
-        println!("Transition is getting procced");
         active_game_state.set(ActiveGameState::ToEnemyTurn);
     }
 }
