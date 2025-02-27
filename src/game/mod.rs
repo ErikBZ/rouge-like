@@ -1,7 +1,7 @@
 use bevy::{prelude::*, utils:: {HashSet, HashMap}};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
-use level_setup::init_units_on_map;
+use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
 
 use crate::{despawn_screen, GameState};
 mod movement;
@@ -41,6 +41,9 @@ struct WallBundle {
 
 #[derive(Component)]
 struct OnLevelScreen;
+
+#[derive(Component)]
+struct PlayerTurnLabel;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(GameState = GameState::Game)]
@@ -126,6 +129,14 @@ impl UnitsOnMap {
         self.player_units.clear();
         self.enemy_units.clear();
     }
+
+    pub fn is_player(&self, coords: &GridCoords) -> bool {
+        self.player_units.contains_key(coords)
+    }
+
+    pub fn is_enemy(&self, coords: &GridCoords) -> bool {
+        self.enemy_units.contains_key(coords)
+    }
 }
 
 pub fn game_plugin(app: &mut App) {
@@ -143,8 +154,8 @@ pub fn game_plugin(app: &mut App) {
         // and not run any other update code until it's done?
         .add_systems(OnEnter(ActiveGameState::Loading), init_game)
         .add_systems(Update, (
-            init_level_walls, 
-            init_units_on_map, 
+            init_level_walls,
+            init_units_on_map,
             transition_to_game
         ).run_if(in_state(ActiveGameState::Loading)))
         .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
@@ -160,11 +171,23 @@ pub fn game_plugin(app: &mut App) {
             dehilight_range,
             select_unit,
             check_for_team_refresh,
-            level_setup::transition_animation
         ).run_if(in_state(ActiveGameState::Select)))
+        .add_systems(OnExit(ActiveGameState::Select), refresh_units)
         .add_systems(OnEnter(ActiveGameState::ToEnemyTurn), level_setup::setup_transition_animation)
         .add_systems(OnEnter(ActiveGameState::ToPlayerTurn), level_setup::setup_transition_animation)
+        .add_systems(Update, (
+            level_setup::transition_animation
+        ).run_if(in_state(GameState::Game)))
+        .add_systems(Update, (
+            enemy_turn
+        ).run_if(in_state(ActiveGameState::EnemyTurn)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<OnLevelScreen>);
+}
+
+fn refresh_units(
+    mut team_q: Query<&mut Teams>,
+) {
+    team_q.single_mut().clear();
 }
 
 fn transition_to_game(
@@ -224,6 +247,22 @@ fn init_game(
     transform.translation.x += 100.0 / 4.0;
     transform.translation.x += 50.0 / 4.0;
     proj.scale = 0.5;
+
+    commands.spawn(
+        Text::new("")
+    ).with_child((
+        Node {
+            margin: UiRect::all(Val::Px(50.0)),
+            ..default()
+        },
+        PlayerTurnLabel,
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor::WHITE,
+        TextSpan::default(),
+    ));
 }
 
 fn exit_to_menu(
@@ -273,6 +312,13 @@ fn init_level_walls(
     if loaded_walls {
         components_loaded.0 += 1;
     }
+}
+
+fn enemy_turn(
+    mut game: ResMut<NextState<ActiveGameState>>
+) {
+    println!("IT'S THE ENEMIES TURN");
+    game.set(ActiveGameState::ToPlayerTurn);
 }
 
 #[derive(Default, Component)]

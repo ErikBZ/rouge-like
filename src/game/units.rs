@@ -4,6 +4,7 @@ use bevy_ecs_ldtk::prelude::*;
 
 use super::{ActiveGameState, Player};
 
+// TODO: This should have a different name
 #[derive(Default, Component)]
 pub struct Teams {
     moved_player_units: HashSet<Entity>,
@@ -28,14 +29,15 @@ impl Teams {
         self.moved_player_units.len()
     }
 
-    // pub fn clear(&mut self) {
-    //     self.moved_player_units.clear();
-    // }
+    pub fn clear(&mut self) {
+        self.moved_player_units.clear();
+    }
 }
 
 // TODO: player_team_q should probably be a different name
 // This gets procced a couple times at the start. Need to only run once
 // we are sure the player is running their turn
+// This should be called something else lol
 pub fn check_for_team_refresh(
     team_q: Query<&Teams>,
     player_q: Query<&Player>,

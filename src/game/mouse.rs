@@ -100,7 +100,7 @@ pub fn select_unit(
     // TODO: This looks horrendous
     if mouse_buttons.just_pressed(MouseButton::Left) {
         if let Some(entity) = units_on_map.get(&mouse_coords.0) {
-            if !teams.contains(&entity) {
+            if !teams.contains(&entity) && units_on_map.is_player(&mouse_coords.0) {
                 commands.entity(entity).insert(Selected);
                 if !selected_q.is_empty() {
                     for e in selected_q.iter() {

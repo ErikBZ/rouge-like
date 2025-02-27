@@ -7,7 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
-use super::{ActiveGameState, InitComponentsLoaded};
+use super::{ActiveGameState, InitComponentsLoaded, PlayerTurnLabel};
 
 use super::UnitsOnMap;
 
@@ -39,6 +39,7 @@ pub fn init_units_on_map(
 
         let (atlas, stats) = match entity_instance.identifier.as_str() {
             "Enemy_Start" => {
+                println!("Adding Enemy Entity!");
                 commands.entity(entity).insert(Enemy);
                 let stats = UnitStats::enemy();
                 units_on_map.enemy_units.insert(grid_coords, entity);
@@ -52,6 +53,7 @@ pub fn init_units_on_map(
                 )
             },
             "Player_Start" => {
+                println!("Adding Player Entity!");
                 commands.entity(entity).insert(Player);
                 let stats = UnitStats::player();
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
@@ -86,8 +88,22 @@ pub fn init_units_on_map(
 }
 
 // TOOD: Move this over to game/ui.rs
-pub fn setup_transition_animation(mut _commands: Commands) {
-    println!("Setting up transition animation")
+pub fn setup_transition_animation(
+    mut _commands: Commands,
+    active_game_state: Res<State<ActiveGameState>>,
+    mut entities: Query<(Entity, &Node, &mut TextSpan), With<PlayerTurnLabel>>,
+) {
+    println!("Setting up transition animation");
+    println!("{:?}", active_game_state.get());
+    for (entity, node, mut text) in entities.iter_mut() {
+        println!("HELLO THIS IS A THING");
+        **text = format!("SOMETHING ELSE");
+        match active_game_state.get() {
+            ActiveGameState::ToEnemyTurn => **text = format!("ENEMY TURN"),
+            ActiveGameState::ToPlayerTurn => **text = format!("PLAYER TURN"),
+            _ => (),
+        }
+    }
 }
 
 pub fn transition_animation(
@@ -99,7 +115,7 @@ pub fn transition_animation(
         println!("Going to Player!");
         active_game_state.set(ActiveGameState::Select)
     } else if *current_game_state.get() == ActiveGameState::ToEnemyTurn {
-        println!("Going to Team!");
+        println!("Going to Enemy Team!");
         active_game_state.set(ActiveGameState::EnemyTurn)
     }
 }
