@@ -9,6 +9,7 @@ mod camera;
 mod level_setup;
 mod units;
 mod mouse;
+mod weapon;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
