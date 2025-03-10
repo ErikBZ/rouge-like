@@ -53,14 +53,14 @@ pub enum WeaponRange {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Weapon {
-    attack: u32,
-    hit: u32,
-    weight: u32,
-    crit: u32,
-    range: WeaponRange,
-    rarity: Rarity,
-    weapon_type: WeaponType,
-    weapon_effect: Option<WeaponEffect>,
+    pub attack: u32,
+    pub hit: u32,
+    pub weight: u32,
+    pub crit: u32,
+    pub range: WeaponRange,
+    pub rarity: Rarity,
+    pub weapon_type: WeaponType,
+    pub weapon_effect: Option<WeaponEffect>,
 }
 
 impl Default for Weapon {
@@ -74,6 +74,27 @@ impl Default for Weapon {
             rarity: Rarity::Common,
             weapon_type: WeaponType::Sword,
             weapon_effect: None
+        }
+    }
+}
+
+impl Weapon {
+    pub fn get_name(&self) -> String {
+        let rarity = match self.rarity {
+            Rarity::Common => format!("common"),
+            Rarity::Uncommon => format!("uncommon"),
+            Rarity::Rare => format!("rare"),
+            Rarity::Legendary => format!("legendary"),
+        };
+
+        match self.weapon_type {
+            WeaponType::Sword => format!("{}-sword", rarity),
+            WeaponType::Lance => format!("{}-lance", rarity),
+            WeaponType::Axe => format!("{}-axe", rarity),
+            WeaponType::Bow => format!("{}-bow", rarity),
+            WeaponType::Natural => format!("{}-natural", rarity),
+            WeaponType::Light => format!("{}-light", rarity),
+            WeaponType::Dark => format!("{}-dark", rarity),
         }
     }
 }
@@ -167,7 +188,7 @@ fn get_common_weapon() -> Weapon {
         },
     ];
 
-    weapons.choose(&mut rand::thread_rng()).unwrap().clone()
+    weapons.choose(&mut rand::rng()).unwrap().clone()
 }
 
 fn get_uncommon_weapon() -> Weapon {
@@ -240,7 +261,7 @@ fn get_uncommon_weapon() -> Weapon {
         },
     ];
 
-    weapons.choose(&mut rand::thread_rng()).unwrap().clone()
+    weapons.choose(&mut rand::rng()).unwrap().clone()
 }
 
 fn get_rare_weapon() -> Weapon {
@@ -313,7 +334,7 @@ fn get_rare_weapon() -> Weapon {
         },
     ];
 
-    weapons.choose(&mut rand::thread_rng()).unwrap().clone()
+    weapons.choose(&mut rand::rng()).unwrap().clone()
 }
 
 fn get_legendary_weapon() -> Weapon {
@@ -388,7 +409,7 @@ fn get_legendary_weapon() -> Weapon {
         },
     ];
 
-    weapons.choose(&mut rand::thread_rng()).unwrap().clone()
+    weapons.choose(&mut rand::rng()).unwrap().clone()
 }
 
 pub fn get_random_weapon() -> Weapon {
