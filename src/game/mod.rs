@@ -10,11 +10,13 @@ mod level_setup;
 mod units;
 mod mouse;
 mod weapon;
+mod ui;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
 use camera::*;
 use units::*;
+use ui::*;
 
 const REQUIRED_COMPONENTS: u32 = 2;
 const GRID_SIZE: i32 = 16;
@@ -126,6 +128,10 @@ impl UnitsOnMap {
         }
     }
 
+    pub fn contains(&self, coords: &GridCoords) -> bool {
+        self.player_units.contains_key(coords) || self.enemy_units.contains_key(coords)
+    }
+
     pub fn clear(&mut self) {
         self.player_units.clear();
         self.enemy_units.clear();
@@ -171,7 +177,10 @@ pub fn game_plugin(app: &mut App) {
             highlight_range,
             dehilight_range,
             select_unit,
+            hover_unit,
+            removed_hovered_unit,
             check_for_team_refresh,
+            update_hovered_unit,
         ).run_if(in_state(ActiveGameState::Select)))
         .add_systems(OnExit(ActiveGameState::Select), refresh_units)
         .add_systems(OnEnter(ActiveGameState::ToEnemyTurn), level_setup::setup_transition_animation)
@@ -249,9 +258,10 @@ fn init_game(
     transform.translation.x += 50.0 / 4.0;
     proj.scale = 0.5;
 
-    commands.spawn(
-        Text::new("")
-    ).with_child((
+    commands.spawn((
+        Text::new(""),
+        OnLevelScreen,
+    )).with_child((
         Node {
             margin: UiRect::all(Val::Px(50.0)),
             ..default()
@@ -264,6 +274,18 @@ fn init_game(
         TextColor::WHITE,
         TextSpan::default(),
     ));
+
+    commands.spawn((
+        OnLevelScreen,
+        DetailView,
+        Node {
+            width: Val::Percent(15.0),
+            height: Val::Percent(25.0),
+            ..Default::default()
+        },
+        Visibility::Hidden,
+        BackgroundColor(Color::WHITE)
+    )).with_children(|_parent| {});
 }
 
 fn exit_to_menu(
@@ -324,6 +346,9 @@ fn enemy_turn(
 
 #[derive(Default, Component)]
 struct Selected;
+
+#[derive(Default, Component)]
+struct Hovered;
 
 fn turn_ending_animation() {
     todo!()

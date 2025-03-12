@@ -1,8 +1,9 @@
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashSet;
+use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
 
 use super::{ActiveGameState, Player};
+use super::weapon::Weapon;
 
 // TODO: This should have a different name
 #[derive(Default, Component)]
@@ -98,6 +99,26 @@ impl UnitStats {
 #[derive(Default, Bundle, LdtkEntity)]
 pub struct UnitBundle {
     pub stats: UnitStats,
+    pub pack: WeaponPack,
     #[grid_coords]
     pub grid_coords: GridCoords,
+}
+
+#[derive(Default, Component)]
+pub struct WeaponPack {
+    pub weapons: Vec<Weapon>,
+    pub equipped: usize,
+}
+
+impl WeaponPack {
+    pub fn new() -> Self {
+        Self {
+            weapons: Vec::new(),
+            equipped: 0,
+        }
+    }
+
+    pub fn get_equipped(&self) -> &Weapon {
+        &self.weapons[self.equipped]
+    }
 }

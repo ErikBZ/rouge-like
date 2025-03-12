@@ -1,6 +1,6 @@
 use rand::distr::{Distribution, StandardUniform};
 use rand::seq::IndexedRandom;
-use rand::{Rng, seq::SliceRandom};
+use rand::Rng;
 
 // TODO: Try using bevy_asset_loader with a Loading state
 #[derive(PartialEq, Clone, Debug)]
