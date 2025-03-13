@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
 
-use super::{ActiveGameState, Player};
+use super::{ActiveGameState, Player, Weapons};
 use super::weapon::Weapon;
 
 // TODO: This should have a different name
@@ -112,8 +112,13 @@ pub struct WeaponPack {
 
 impl WeaponPack {
     pub fn new() -> Self {
+        let mut weapons = Vec::new();
+        for _ in 0..3 {
+            weapons.push(Weapon::get_random_weapon());
+        }
+
         Self {
-            weapons: Vec::new(),
+            weapons,
             equipped: 0,
         }
     }

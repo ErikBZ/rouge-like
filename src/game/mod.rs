@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils:: {HashSet, HashMap}};
+use bevy::{color::palettes::css::BLACK, prelude::*, utils:: {HashMap, HashSet}};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
@@ -284,8 +284,19 @@ fn init_game(
             ..Default::default()
         },
         Visibility::Hidden,
-        BackgroundColor(Color::WHITE)
-    )).with_children(|_parent| {});
+        BackgroundColor(Color::WHITE),
+        Text::new(""),
+    )).with_children(|parent| {
+        parent.spawn((
+            Stats,
+            TextSpan::default(),
+            TextColor(Color::BLACK),
+            TextFont {
+                font_size: 13.0,
+                ..Default::default()
+            },
+        ));
+    });
 }
 
 fn exit_to_menu(

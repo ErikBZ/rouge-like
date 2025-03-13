@@ -3,8 +3,8 @@ use bevy::window::PrimaryWindow;
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::translation_to_grid_coords};
 
 use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords, DetailView};
-
-use super::{units::UnitStats, Selected, Hovered, Teams, UnitsOnMap};
+use crate::game::ui::Stats;
+use super::{units::UnitStats, units::WeaponPack, Selected, Hovered, Teams, UnitsOnMap};
 
 #[derive(Component)]
 pub struct MouseCursor;
@@ -74,16 +74,29 @@ pub fn track_mouse_coords(
 // TODO: Add actual stats in the box
 pub fn update_hovered_unit(
     mut detail_view: Query<(&mut Visibility, &mut Node), With<DetailView>>,
+    mut stats_q: Query<&mut TextSpan, With<Stats>>,
+    unit_q: Query<(&UnitStats, &WeaponPack), Added<Hovered>>,
     window_q: Query<&Window, With<PrimaryWindow>>,
-    mut unit_q: Query<&UnitStats, Added<Hovered>>,
 ) {
     if !unit_q.is_empty() {
         let (mut vis, mut node) = detail_view.single_mut();
         let window_pos = window_q.single().cursor_position().unwrap_or(Vec2::new(0.0, 0.0));
-        let _unit_stats = unit_q.single_mut();
+        let (stats, pack) = unit_q.single();
+        let mut stats_view = stats_q.single_mut();
+
         *vis = Visibility::Visible;
         node.left = Val::Px(window_pos.x);
         node.top = Val::Px(window_pos.y);
+        let stats_detailed = format!(
+            "HP: {}\nATK: {}\nDEF: {}\nSPD: {}\nMOV: {}", stats.hp, stats.atk, stats.def, stats.spd, stats.mov
+        );
+
+        let mut weapon_details = String::new();
+        for w in pack.weapons.iter() {
+            weapon_details = format!("{}\n{:?}", weapon_details, w);
+        }
+
+        **stats_view = format!("{}\n{}", stats_detailed, weapon_details);
     }
 }
 

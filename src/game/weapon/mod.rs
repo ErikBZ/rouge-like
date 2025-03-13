@@ -79,6 +79,20 @@ impl Default for Weapon {
 }
 
 impl Weapon {
+    pub fn get_random_weapon() -> Weapon {
+        let rarity: Rarity = rand::random();
+        Self::get_random_weapon_by_rarity(rarity)
+    }
+
+    pub fn get_random_weapon_by_rarity(rarity: Rarity) -> Weapon {
+        match rarity {
+            Rarity::Common => get_common_weapon(),
+            Rarity::Uncommon => get_uncommon_weapon(),
+            Rarity::Rare => get_rare_weapon(),
+            Rarity::Legendary => get_legendary_weapon(),
+        }
+    }
+
     pub fn get_name(&self) -> String {
         let rarity = match self.rarity {
             Rarity::Common => format!("common"),
@@ -410,19 +424,5 @@ fn get_legendary_weapon() -> Weapon {
     ];
 
     weapons.choose(&mut rand::rng()).unwrap().clone()
-}
-
-pub fn get_random_weapon() -> Weapon {
-    let rarity: Rarity = rand::random();    
-    get_random_weapon_by_rarity(rarity)
-}
-
-pub fn get_random_weapon_by_rarity(rarity: Rarity) -> Weapon {
-    match rarity {
-        Rarity::Common => get_common_weapon(),
-        Rarity::Uncommon => get_uncommon_weapon(),
-        Rarity::Rare => get_rare_weapon(),
-        Rarity::Legendary => get_legendary_weapon(),
-    }
 }
 
