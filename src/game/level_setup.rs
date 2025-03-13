@@ -9,7 +9,7 @@ use crate::game::GRID_SIZE;
 use crate::game::UnitType;
 use super::{ActiveGameState, InitComponentsLoaded, PlayerTurnLabel};
 
-use super::UnitsOnMap;
+use super::{UnitsOnMap, WeaponPack};
 
 // enum StartingLocations {
 //     Enemy(GridCoords),
@@ -68,6 +68,7 @@ pub fn init_units_on_map(
 
         commands.entity(entity).insert ((
             UnitBundle {
+                pack: WeaponPack::new(),
                 stats,
                 grid_coords
             },

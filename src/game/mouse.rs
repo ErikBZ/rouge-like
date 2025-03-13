@@ -2,9 +2,9 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::translation_to_grid_coords};
 
-use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords};
-
-use super::{units::UnitStats, Selected, Teams, UnitsOnMap};
+use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords, DetailView};
+use crate::game::ui::Stats;
+use super::{units::UnitStats, units::WeaponPack, Selected, Hovered, Teams, UnitsOnMap};
 
 #[derive(Component)]
 pub struct MouseCursor;
@@ -70,21 +70,45 @@ pub fn track_mouse_coords(
     }
 }
 
-pub fn _update_hovered_unit(
-    units_on_map: Res<UnitsOnMap>,
-    mouse_coords: Res<MouseGridCoords>,
-    stats_q: Query<&UnitStats>,
-    mouse_buttons: Res<ButtonInput<MouseButton>>
+// TODO: Move this to UI?
+// TODO: Add actual stats in the box
+pub fn update_hovered_unit(
+    mut detail_view: Query<(&mut Visibility, &mut Node), With<DetailView>>,
+    mut stats_q: Query<&mut TextSpan, With<Stats>>,
+    unit_q: Query<(&UnitStats, &WeaponPack), Added<Hovered>>,
+    window_q: Query<&Window, With<PrimaryWindow>>,
 ) {
-    if mouse_buttons.just_pressed(MouseButton::Left) {
-        if let Some(entity) = units_on_map.get(&mouse_coords.0) {
-            let _stats = match stats_q.get(entity) {
-                Ok(s) => s,
-                _ => return,
-            };
+    if !unit_q.is_empty() {
+        let (mut vis, mut node) = detail_view.single_mut();
+        let window_pos = window_q.single().cursor_position().unwrap_or(Vec2::new(0.0, 0.0));
+        let (stats, pack) = unit_q.single();
+        let mut stats_view = stats_q.single_mut();
+
+        *vis = Visibility::Visible;
+        node.left = Val::Px(window_pos.x);
+        node.top = Val::Px(window_pos.y);
+        let stats_detailed = format!(
+            "HP: {}\nATK: {}\nDEF: {}\nSPD: {}\nMOV: {}", stats.hp, stats.atk, stats.def, stats.spd, stats.mov
+        );
+
+        let mut weapon_details = String::new();
+        for w in pack.weapons.iter() {
+            weapon_details = format!("{}\n{:?}", weapon_details, w);
         }
+
+        **stats_view = format!("{}\n{}", stats_detailed, weapon_details);
     }
-    // TODO: Add code to update UI
+}
+
+pub fn removed_hovered_unit(
+    mut _commands: Commands,
+    removed: RemovedComponents<Hovered>,
+    mut detail_view: Query<&mut Visibility, With<DetailView>>,
+) {
+    if !removed.is_empty() {
+        let mut vis = detail_view.single_mut();
+        *vis = Visibility::Hidden;
+    }
 }
 
 pub fn select_unit(
@@ -116,4 +140,21 @@ pub fn select_unit(
     }
 }
 
+pub fn hover_unit(
+    mut commands: Commands,
+    units_on_map: Res<UnitsOnMap>,
+    mouse_coords: Res<MouseGridCoords>,
+    hovered_q: Query<Entity, With<Hovered>>,
+) {
+    if !mouse_coords.is_changed() { return }
 
+    if let Some(entity) = units_on_map.get(&mouse_coords.0) {
+        info!("Adding hovered to unit");
+        commands.entity(entity).insert(Hovered);
+    }
+
+    // Remove if any units already had hovered, so there's only 1
+    for e in hovered_q.iter() {
+        commands.entity(e).remove::<Hovered>();
+    }
+}
