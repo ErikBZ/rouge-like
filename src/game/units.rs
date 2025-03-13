@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
 
-use super::{ActiveGameState, Player, Weapons};
+use super::{BattleState, Player, Weapons};
 use super::weapon::Weapon;
 
 // TODO: This should have a different name
@@ -42,14 +42,14 @@ impl Teams {
 pub fn check_for_team_refresh(
     team_q: Query<&Teams>,
     player_q: Query<&Player>,
-    mut active_game_state: ResMut<NextState<ActiveGameState>>,
+    mut active_game_state: ResMut<NextState<BattleState>>,
 ) {
     let team = team_q.single();
     let num_of_players = player_q.iter().len();
 
     if num_of_players == team.count() {
         // should I send an event or just queue the stuff here?
-        active_game_state.set(ActiveGameState::ToEnemyTurn);
+        active_game_state.set(BattleState::ToEnemyTurn);
     }
 }
 

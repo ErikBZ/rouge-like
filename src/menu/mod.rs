@@ -1,20 +1,21 @@
 use bevy::{app::AppExit, prelude::*};
 
-use crate::GameState;
+use crate::AppState;
 
 use super::despawn_screen;
 
 pub fn menu_plugin(app: &mut App) {
     app
         .init_state::<MenuState>()
-        .add_systems(OnEnter(GameState::Menu), menu_setup)
+        .add_systems(OnEnter(AppState::Menu), menu_setup)
         .add_systems(OnEnter(MenuState::Main), main_menu_setup)
         .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
         .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
         .add_systems(OnExit(MenuState::Settings), despawn_screen::<OnSettingsMenuScreen>)
-        .add_systems(Update, (menu_action, button_system).run_if(in_state(GameState::Menu)));
+        .add_systems(Update, (menu_action, button_system).run_if(in_state(AppState::Menu)));
 }
 
+// TODO: Change this to substate
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum MenuState {
     Main,
@@ -24,7 +25,6 @@ enum MenuState {
 }
 
 // Used for 'tagging' an entity
-
 #[derive(Component)]
 struct OnMainMenuScreen;
 
@@ -261,14 +261,14 @@ fn menu_action(
     >,
     mut app_exit_events: EventWriter<AppExit>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut game_state: ResMut<NextState<GameState>>,
+    mut game_state: ResMut<NextState<AppState>>,
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
                 MenuButtonAction::Play => {
                     menu_state.set(MenuState::Disabled);
-                    game_state.set(GameState::Game);
+                    game_state.set(AppState::Game);
                 },
                 MenuButtonAction::Settings => {
                     menu_state.set(MenuState::Settings);

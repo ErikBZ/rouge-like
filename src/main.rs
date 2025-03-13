@@ -6,7 +6,7 @@ mod menu;
 mod game;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum GameState {
+enum AppState {
     #[default]
     Splash,
     Menu,
@@ -17,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugins(WorldInspectorPlugin::default())
-        .init_state::<GameState>()
+        .init_state::<AppState>()
         .add_systems(Startup, setup)
         .add_plugins(splash::splash_plugin)
         .add_plugins(menu::menu_plugin)

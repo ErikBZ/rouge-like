@@ -7,7 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
-use super::{ActiveGameState, InitComponentsLoaded, PlayerTurnLabel};
+use super::{BattleState, InitComponentsLoaded, PlayerTurnLabel};
 
 use super::{UnitsOnMap, WeaponPack};
 
@@ -89,14 +89,14 @@ pub fn init_units_on_map(
 // TOOD: Move this over to game/ui.rs
 pub fn setup_transition_animation(
     mut _commands: Commands,
-    active_game_state: Res<State<ActiveGameState>>,
+    active_game_state: Res<State<BattleState>>,
     mut entities: Query<(Entity, &Node, &mut TextSpan), With<PlayerTurnLabel>>,
 ) {
     info!("Setting up transition animation");
     for (entity, node, mut text) in entities.iter_mut() {
         match active_game_state.get() {
-            ActiveGameState::ToEnemyTurn => **text = format!("ENEMY TURN"),
-            ActiveGameState::ToPlayerTurn => **text = format!("PLAYER TURN"),
+            BattleState::ToEnemyTurn => **text = format!("ENEMY TURN"),
+            BattleState::ToPlayerTurn => **text = format!("PLAYER TURN"),
             _ => (),
         }
     }
@@ -104,14 +104,14 @@ pub fn setup_transition_animation(
 
 pub fn transition_animation(
     mut _commands: Commands,
-    mut active_game_state: ResMut<NextState<ActiveGameState>>,
-    current_game_state: Res<State<ActiveGameState>>,
+    mut active_game_state: ResMut<NextState<BattleState>>,
+    current_game_state: Res<State<BattleState>>,
 ) {
-    if *current_game_state.get() == ActiveGameState::ToPlayerTurn {
+    if *current_game_state.get() == BattleState::ToPlayerTurn {
         info!("Transitioning to player's turn");
-        active_game_state.set(ActiveGameState::Select)
-    } else if *current_game_state.get() == ActiveGameState::ToEnemyTurn {
+        active_game_state.set(BattleState::Select)
+    } else if *current_game_state.get() == BattleState::ToEnemyTurn {
         info!("Transitioning to enemy's turn");
-        active_game_state.set(ActiveGameState::EnemyTurn)
+        active_game_state.set(BattleState::EnemyTurn)
     }
 }
