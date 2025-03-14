@@ -11,12 +11,16 @@ mod units;
 mod mouse;
 mod weapon;
 mod ui;
+mod unit_selection;
+mod map_selection;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
 use camera::*;
 use units::*;
 use ui::*;
+use unit_selection::unit_selection_plugin;
+use map_selection::map_selection_plugin;
 
 const REQUIRED_COMPONENTS: u32 = 2;
 const GRID_SIZE: i32 = 16;
@@ -50,6 +54,18 @@ struct PlayerTurnLabel;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(AppState = AppState::Game)]
+// TODO: Create a top level State and per turn state.
+enum GameState {
+    #[default]
+    UnitSelection,
+    MapSelection,
+    InBattle,
+    ChestSelection,
+    Rewards
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
+#[source(GameState = GameState::InBattle)]
 // TODO: Create a top level State and per turn state.
 enum BattleState {
     // Player Actions
@@ -155,7 +171,10 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
         .init_resource::<InitComponentsLoaded>()
+        .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
+        .add_plugins(unit_selection_plugin)
+        .add_plugins(map_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
@@ -187,7 +206,7 @@ pub fn game_plugin(app: &mut App) {
         .add_systems(OnEnter(BattleState::ToPlayerTurn), level_setup::setup_transition_animation)
         .add_systems(Update, (
             level_setup::transition_animation
-        ).run_if(in_state(AppState::Game)))
+        ).run_if(in_state(GameState::InBattle)))
         .add_systems(Update, (
             enemy_turn
         ).run_if(in_state(BattleState::EnemyTurn)))
