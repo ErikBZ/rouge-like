@@ -111,7 +111,8 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(
+                    parent
+                    .spawn(
                         Node {
                             margin: UiRect::all(Val::Px(50.0)),
                             ..default()
