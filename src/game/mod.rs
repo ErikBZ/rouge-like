@@ -221,7 +221,7 @@ pub fn game_plugin(app: &mut App) {
         .add_systems(Update, (
             enemy_turn
         ).run_if(in_state(BattleState::EnemyTurn)))
-        .add_systems(OnExit(GameState::InBattle), despawn_screen::<OnLevelScreen>);
+        .add_systems(OnExit(GameState::InBattle), (despawn_screen::<OnLevelScreen>, reset_game));
 }
 
 fn refresh_units(
@@ -268,6 +268,7 @@ fn init_game(
     assert_server: Res<AssetServer>, 
     mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
 ) {
+    info!("Initialzing the battle");
     commands.spawn((
         LdtkWorldBundle {
             ldtk_handle: LdtkProjectHandle { handle: assert_server.load("test_level.ldtk")},
@@ -359,6 +360,10 @@ fn init_game(
             ));
         });
     });
+}
+
+fn reset_game(mut components_loaded: ResMut<InitComponentsLoaded>) {
+    components_loaded.0 = 0;
 }
 
 fn menu_action(

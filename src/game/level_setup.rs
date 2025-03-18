@@ -39,6 +39,7 @@ pub fn init_units_on_map(
 
         let (atlas, stats) = match entity_instance.identifier.as_str() {
             "Enemy_Start" => {
+                info!("Creating enemy unit on map");
                 commands.entity(entity).insert(Enemy);
                 let stats = UnitStats::enemy();
                 units_on_map.enemy_units.insert(grid_coords, entity);
@@ -52,6 +53,7 @@ pub fn init_units_on_map(
                 )
             },
             "Player_Start" => {
+                info!("Creating player unit on map");
                 commands.entity(entity).insert(Player);
                 let stats = UnitStats::player();
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
