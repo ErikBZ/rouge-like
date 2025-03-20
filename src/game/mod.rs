@@ -11,12 +11,20 @@ mod units;
 mod mouse;
 mod weapon;
 mod ui;
+mod unit_selection;
+mod map_selection;
+mod rewards;
+mod chest_selection;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
 use camera::*;
 use units::*;
 use ui::*;
+use unit_selection::unit_selection_plugin;
+use map_selection::map_selection_plugin;
+use rewards::rewards_plugin;
+use chest_selection::chest_selection_plugin;
 
 const REQUIRED_COMPONENTS: u32 = 2;
 const GRID_SIZE: i32 = 16;
@@ -46,10 +54,25 @@ struct WallBundle {
 struct OnLevelScreen;
 
 #[derive(Component)]
+struct EndBattleEarly;
+
+#[derive(Component)]
 struct PlayerTurnLabel;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(AppState = AppState::Game)]
+// TODO: Create a top level State and per turn state.
+enum GameState {
+    #[default]
+    UnitSelection,
+    MapSelection,
+    InBattle,
+    ChestSelection,
+    Rewards
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
+#[source(GameState = GameState::InBattle)]
 // TODO: Create a top level State and per turn state.
 enum BattleState {
     // Player Actions
@@ -146,6 +169,7 @@ impl UnitsOnMap {
     }
 }
 
+// BUG: Second InBattle transition does not start BattleState at "Loading"
 pub fn game_plugin(app: &mut App) {
     // TODO: Despawn resources that won't be needed outside
     app
@@ -155,7 +179,12 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
         .init_resource::<InitComponentsLoaded>()
+        .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
+        .add_plugins(unit_selection_plugin)
+        .add_plugins(map_selection_plugin)
+        .add_plugins(rewards_plugin)
+        .add_plugins(chest_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
@@ -186,12 +215,13 @@ pub fn game_plugin(app: &mut App) {
         .add_systems(OnEnter(BattleState::ToEnemyTurn), level_setup::setup_transition_animation)
         .add_systems(OnEnter(BattleState::ToPlayerTurn), level_setup::setup_transition_animation)
         .add_systems(Update, (
-            level_setup::transition_animation
-        ).run_if(in_state(AppState::Game)))
+            level_setup::transition_animation,
+            menu_action,
+        ).run_if(in_state(GameState::InBattle)))
         .add_systems(Update, (
             enemy_turn
         ).run_if(in_state(BattleState::EnemyTurn)))
-        .add_systems(OnExit(AppState::Game), despawn_screen::<OnLevelScreen>);
+        .add_systems(OnExit(GameState::InBattle), (despawn_screen::<OnLevelScreen>, reset_game));
 }
 
 fn refresh_units(
@@ -238,6 +268,7 @@ fn init_game(
     assert_server: Res<AssetServer>, 
     mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
 ) {
+    info!("Initialzing the battle");
     commands.spawn((
         LdtkWorldBundle {
             ldtk_handle: LdtkProjectHandle { handle: assert_server.load("test_level.ldtk")},
@@ -297,6 +328,56 @@ fn init_game(
             },
         ));
     });
+
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        OnLevelScreen
+    )).with_children(|parent| {
+        parent.spawn((
+            Button {
+                ..default()
+            },
+            Node {
+                width: Val::Px(250.0),
+                height: Val::Px(65.0),
+                margin: UiRect::all(Val::Px(20.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::BLACK),
+            EndBattleEarly,
+        )).with_children(|parent| {
+            parent.spawn((
+                Text::new("End Battle Early"),
+                TextColor(Color::WHITE),
+            ));
+        });
+    });
+}
+
+fn reset_game(mut components_loaded: ResMut<InitComponentsLoaded>) {
+    components_loaded.0 = 0;
+}
+
+fn menu_action(
+    interaction_query: Query<
+        &Interaction,
+        (Changed<Interaction>, With<Button>, With<EndBattleEarly>),
+    >,
+    mut game_state: ResMut<NextState<GameState>>,
+){
+    for interaction in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            game_state.set(GameState::ChestSelection);
+        }
+    }
 }
 
 fn exit_to_menu(
