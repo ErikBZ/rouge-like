@@ -26,7 +26,8 @@ use map_selection::map_selection_plugin;
 use rewards::rewards_plugin;
 use chest_selection::chest_selection_plugin;
 
-const REQUIRED_COMPONENTS: u32 = 2;
+const REQUIRED_BATTLE_COMPONENTS: u32 = 3;
+const REQUIRED_GAME_COMPONENTS: u32 = 1;
 const GRID_SIZE: i32 = 16;
 const GRID_SIZE_VEC: IVec2 = IVec2 {
     x: 16,
@@ -41,6 +42,11 @@ struct Enemy;
 
 #[derive(Default, Resource, Debug)]
 pub struct MouseGridCoords(GridCoords);
+
+#[derive(Default, Resource, Debug)]
+struct AvailableUnits {
+    units: Vec<(String, UnitStats)>
+}
 
 #[derive(Default, Component, Debug)]
 struct Wall;
@@ -64,12 +70,16 @@ struct PlayerTurnLabel;
 // TODO: Create a top level State and per turn state.
 enum GameState {
     #[default]
+    Loading,
     UnitSelection,
     MapSelection,
     InBattle,
     ChestSelection,
     Rewards
 }
+
+#[derive(Default, Resource, Debug)]
+struct GameComponentsLoaded(u32);
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(GameState = GameState::InBattle)]
@@ -97,7 +107,7 @@ struct LevelWalls {
 }
 
 #[derive(Default, Resource, Debug)]
-struct InitComponentsLoaded(u32);
+struct BattleComponentsLoaded(u32);
 
 impl LevelWalls {
     fn in_wall(&self, grid_coords: &GridCoords) -> bool {
@@ -178,7 +188,9 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
-        .init_resource::<InitComponentsLoaded>()
+        .init_resource::<GameComponentsLoaded>()
+        .init_resource::<BattleComponentsLoaded>()
+        .init_resource::<AvailableUnits>()
         .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
         .add_plugins(unit_selection_plugin)
@@ -186,9 +198,13 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(rewards_plugin)
         .add_plugins(chest_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
+        .add_systems(Update, (
+            init_available_units,
+            exit_game_loading
+        ).run_if(in_state(GameState::Loading)))
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
-        .add_systems(OnEnter(BattleState::Loading), init_game)
+        .add_systems(OnEnter(BattleState::Loading), init_battle)
         .add_systems(Update, (
             init_level_walls,
             init_units_on_map,
@@ -230,11 +246,33 @@ fn refresh_units(
     team_q.single_mut().clear();
 }
 
+fn exit_game_loading(
+    mut state: ResMut<NextState<GameState>>,
+    components_loaded: Res<GameComponentsLoaded>
+) {
+    if components_loaded.0 >= REQUIRED_GAME_COMPONENTS {
+        info!("Starting game and transition over to select state");
+        state.set(GameState::UnitSelection);
+    }
+}
+
+fn init_available_units(
+    mut units_available: ResMut<AvailableUnits>,
+    mut components_loaded: ResMut<GameComponentsLoaded>
+) {
+    if units_available.units.len() == 0 {
+        units_available.units.push(("Scooby".to_string(), UnitStats::default()));
+        units_available.units.push(("Courage".to_string(), UnitStats::default()));
+        units_available.units.push(("Lassie".to_string(), UnitStats::default()));
+        components_loaded.0 += 1;
+    }
+}
+
 fn transition_to_game(
     mut state: ResMut<NextState<BattleState>>,
-    components_loaded: Res<InitComponentsLoaded>
+    components_loaded: Res<BattleComponentsLoaded>
 ) {
-    if components_loaded.0 >= REQUIRED_COMPONENTS {
+    if components_loaded.0 >= REQUIRED_BATTLE_COMPONENTS {
         info!("Starting game and transition over to select state");
         state.set(BattleState::Select);
     }
@@ -263,7 +301,7 @@ fn transition_to_game(
 
 // Loads the given ldtk file
 // Must run before init_level_walls and init_units_on_map
-fn init_game(
+fn init_battle(
     mut commands: Commands, 
     assert_server: Res<AssetServer>, 
     mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
@@ -362,7 +400,7 @@ fn init_game(
     });
 }
 
-fn reset_game(mut components_loaded: ResMut<InitComponentsLoaded>) {
+fn reset_game(mut components_loaded: ResMut<BattleComponentsLoaded>) {
     components_loaded.0 = 0;
 }
 
@@ -395,7 +433,7 @@ fn exit_to_menu(
 fn init_level_walls(
     mut level_walls: ResMut<LevelWalls>,
     mut level_events: EventReader<LevelEvent>,
-    mut components_loaded: ResMut<InitComponentsLoaded>,
+    mut components_loaded: ResMut<BattleComponentsLoaded>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
     ldtk_project_entities: Query<&LdtkProjectHandle>,

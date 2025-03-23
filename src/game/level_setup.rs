@@ -7,7 +7,7 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
-use super::{BattleState, InitComponentsLoaded, PlayerTurnLabel};
+use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel};
 
 use super::{UnitsOnMap, WeaponPack};
 
@@ -18,7 +18,7 @@ use super::{UnitsOnMap, WeaponPack};
 
 pub fn init_units_on_map(
     mut commands: Commands,
-    mut components_loaded: ResMut<InitComponentsLoaded>,
+    mut components_loaded: ResMut<BattleComponentsLoaded>,
     entity_query: Query<(Entity, &Transform, &EntityInstance), Added<EntityInstance>>,
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
