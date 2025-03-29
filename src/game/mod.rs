@@ -26,7 +26,7 @@ use map_selection::map_selection_plugin;
 use rewards::rewards_plugin;
 use chest_selection::chest_selection_plugin;
 
-const REQUIRED_BATTLE_COMPONENTS: u32 = 3;
+const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 const REQUIRED_GAME_COMPONENTS: u32 = 1;
 const GRID_SIZE: i32 = 16;
 const GRID_SIZE_VEC: IVec2 = IVec2 {
@@ -272,6 +272,7 @@ fn transition_to_game(
     mut state: ResMut<NextState<BattleState>>,
     components_loaded: Res<BattleComponentsLoaded>
 ) {
+    info!("{} >= {}", components_loaded.0, REQUIRED_BATTLE_COMPONENTS);
     if components_loaded.0 >= REQUIRED_BATTLE_COMPONENTS {
         info!("Starting game and transition over to select state");
         state.set(BattleState::Select);
