@@ -1,6 +1,7 @@
 use bevy::prelude::*;
-use super::GameState;
-use crate::despawn_screen;
+// TODO: Be consistent. Choose either crate or super
+use super::{GameState, AvailableUnits};
+use crate::{despawn_screen, AppState};
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 
@@ -9,6 +10,7 @@ struct OnUnitSelectionScreen;
 
 #[derive(Component)]
 enum UnitSelectionAction {
+    Back,
     GoToMap,
     SelectUnit,
     Play
@@ -23,7 +25,25 @@ pub fn unit_selection_plugin(app: &mut App) {
 
 fn init_screen(
     mut commands: Commands, 
+    units: Res<AvailableUnits>
 ) {
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(10.0),
+            align_items: AlignItems::Start,
+            justify_content: JustifyContent::Start,
+            ..default()
+        },
+        OnUnitSelectionScreen
+    )).with_children(|parent| {
+        create_temp_button(
+            UnitSelectionAction::Back,
+            "Back",
+            parent
+        );
+    });
+
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -34,43 +54,58 @@ fn init_screen(
         },
         OnUnitSelectionScreen
     )).with_children(|parent| {
-        parent.spawn(
-            Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                ..default()
-            }
-        ).with_children(|parent| {
-            create_temp_button(
-                UnitSelectionAction::Play,
-                "Play",
-                parent
-            );
-            create_temp_button(
-                UnitSelectionAction::GoToMap,
-                "Go to Map Selection",
-                parent
-            );
-            create_temp_button(
-                UnitSelectionAction::SelectUnit,
-                "Select Unit",
-                parent
-            );
-        });
+        create_unit_selection_dialog(parent, units);
+    });
+
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(10.0),
+            align_self: AlignSelf::FlexEnd,
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        OnUnitSelectionScreen
+    )).with_children(|parent| {
+        create_temp_button(
+            UnitSelectionAction::GoToMap,
+            "Map",
+            parent
+        );
+        create_temp_button(
+            UnitSelectionAction::Play,
+            "Play",
+            parent
+        );
+    });
+}
+
+fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<AvailableUnits>) {
+    parent.spawn((
+        Node {
+            width: Val::Percent(75.0),
+            height: Val::Percent(75.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Start,
+            ..Default::default()
+        },
+        BackgroundColor(Color::srgb(120.0, 0.0, 0.0))
+    )).with_children(|p| {
+        // TODO: Create buttons for units to select
     });
 }
 
 fn create_temp_button(action: UnitSelectionAction, label: &'static str, p: &mut ChildBuilder) {
     p.spawn((
-        Button {
-            ..default()
-        },
+        Button,
         Node {
-            width: Val::Px(250.0),
+            width: Val::Px(125.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            align_self: AlignSelf::Center,
             ..default()
         },
         BackgroundColor(Color::BLACK),
@@ -89,10 +124,14 @@ fn selection_action(
         (Changed<Interaction>, With<Button>),
     >,
     mut game_state: ResMut<NextState<GameState>>,
+    mut application_state: ResMut<NextState<AppState>>,
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
+                UnitSelectionAction::Back => {
+                    application_state.set(AppState::Menu);
+                },
                 UnitSelectionAction::GoToMap => {
                     game_state.set(GameState::MapSelection);
                 },
