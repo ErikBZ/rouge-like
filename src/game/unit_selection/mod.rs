@@ -88,11 +88,35 @@ fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<
             height: Val::Percent(75.0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Start,
+            flex_wrap: FlexWrap::Wrap,
+            overflow: Overflow::scroll_y(),
             ..Default::default()
         },
         BackgroundColor(Color::srgb(120.0, 0.0, 0.0))
     )).with_children(|p| {
         // TODO: Create buttons for units to select
+        for unit in units_available.units.iter() {
+            info!("{}", unit.0);
+            p.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(15.0),
+                    height: Val::Percent(30.0),
+                    margin: UiRect::all(Val::Px(20.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    align_self: AlignSelf::FlexStart,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(120.0, 120.0, 120.0)),
+                UnitSelectionAction::SelectUnit,
+            )).with_children(|parent| {
+                parent.spawn((
+                    Text::new(unit.0.clone()),
+                    TextColor(Color::BLACK),
+                ));
+            });
+        }
     });
 }
 

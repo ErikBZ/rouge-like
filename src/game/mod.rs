@@ -264,6 +264,23 @@ fn init_available_units(
         units_available.units.push(("Scooby".to_string(), UnitStats::default()));
         units_available.units.push(("Courage".to_string(), UnitStats::default()));
         units_available.units.push(("Lassie".to_string(), UnitStats::default()));
+        units_available.units.push(("Dog".to_string(), UnitStats::default()));
+        units_available.units.push(("Cat".to_string(), UnitStats::default()));
+        units_available.units.push(("Elephant".to_string(), UnitStats::default()));
+        units_available.units.push(("Giraffe".to_string(), UnitStats::default()));
+        units_available.units.push(("Slow Loris".to_string(), UnitStats::default()));
+        units_available.units.push(("Chipmanzee".to_string(), UnitStats::default()));
+        units_available.units.push(("Orangutan".to_string(), UnitStats::default()));
+        units_available.units.push(("Tom".to_string(), UnitStats::default()));
+        units_available.units.push(("Double D".to_string(), UnitStats::default()));
+        units_available.units.push(("Eddy".to_string(), UnitStats::default()));
+        units_available.units.push(("Chowder".to_string(), UnitStats::default()));
+        units_available.units.push(("Jerry".to_string(), UnitStats::default()));
+        units_available.units.push(("Homer".to_string(), UnitStats::default()));
+        units_available.units.push(("Sideshow Mel".to_string(), UnitStats::default()));
+        units_available.units.push(("Cletus".to_string(), UnitStats::default()));
+        units_available.units.push(("Mario".to_string(), UnitStats::default()));
+        units_available.units.push(("Luigi".to_string(), UnitStats::default()));
         components_loaded.0 += 1;
     }
 }
