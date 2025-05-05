@@ -260,7 +260,7 @@ fn init_available_units(
     mut units_available: ResMut<AvailableUnits>,
     mut components_loaded: ResMut<GameComponentsLoaded>
 ) {
-    if units_available.units.len() == 0 {
+    if units_available.units.is_empty() {
         units_available.units.push(("Scooby".to_string(), UnitStats::default()));
         units_available.units.push(("Courage".to_string(), UnitStats::default()));
         units_available.units.push(("Lassie".to_string(), UnitStats::default()));
@@ -273,14 +273,6 @@ fn init_available_units(
         units_available.units.push(("Orangutan".to_string(), UnitStats::default()));
         units_available.units.push(("Tom".to_string(), UnitStats::default()));
         units_available.units.push(("Double D".to_string(), UnitStats::default()));
-        units_available.units.push(("Eddy".to_string(), UnitStats::default()));
-        units_available.units.push(("Chowder".to_string(), UnitStats::default()));
-        units_available.units.push(("Jerry".to_string(), UnitStats::default()));
-        units_available.units.push(("Homer".to_string(), UnitStats::default()));
-        units_available.units.push(("Sideshow Mel".to_string(), UnitStats::default()));
-        units_available.units.push(("Cletus".to_string(), UnitStats::default()));
-        units_available.units.push(("Mario".to_string(), UnitStats::default()));
-        units_available.units.push(("Luigi".to_string(), UnitStats::default()));
         components_loaded.0 += 1;
     }
 }
@@ -396,9 +388,7 @@ fn init_battle(
         OnLevelScreen
     )).with_children(|parent| {
         parent.spawn((
-            Button {
-                ..default()
-            },
+            Button,
             Node {
                 width: Val::Px(250.0),
                 height: Val::Px(65.0),

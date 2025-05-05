@@ -9,10 +9,15 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 struct OnUnitSelectionScreen;
 
 #[derive(Component)]
+struct UnitsSelectedForMap {
+    selected: Vec<usize>
+}
+
+#[derive(Component)]
 enum UnitSelectionAction {
     Back,
     GoToMap,
-    SelectUnit,
+    SelectUnit(usize),
     Play
 }
 
@@ -27,6 +32,11 @@ fn init_screen(
     mut commands: Commands, 
     units: Res<AvailableUnits>
 ) {
+    commands.spawn((
+        UnitsSelectedForMap{selected: Vec::new()},
+        OnUnitSelectionScreen
+    ));
+
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -56,7 +66,7 @@ fn init_screen(
     )).with_children(|parent| {
         create_unit_selection_dialog(parent, units);
     });
-
+    
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -84,32 +94,31 @@ fn init_screen(
 fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<AvailableUnits>) {
     parent.spawn((
         Node {
-            width: Val::Percent(75.0),
-            height: Val::Percent(75.0),
+            width: Val::Percent(75.),
+            height: Val::Percent(80.),
             align_items: AlignItems::Center,
-            justify_content: JustifyContent::Start,
+            justify_content: JustifyContent::SpaceEvenly,
             flex_wrap: FlexWrap::Wrap,
             overflow: Overflow::scroll_y(),
             ..Default::default()
         },
-        BackgroundColor(Color::srgb(120.0, 0.0, 0.0))
+        BackgroundColor(Color::srgb(0.5, 0.0, 0.0))
     )).with_children(|p| {
         // TODO: Create buttons for units to select
-        for unit in units_available.units.iter() {
-            info!("{}", unit.0);
+        for (i, unit) in units_available.units.iter().enumerate() {
             p.spawn((
                 Button,
                 Node {
                     width: Val::Percent(15.0),
                     height: Val::Percent(30.0),
-                    margin: UiRect::all(Val::Px(20.0)),
+                    margin: UiRect::vertical(Val::Px(15.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    align_self: AlignSelf::FlexStart,
+                    align_self: AlignSelf::Center,
                     ..default()
                 },
-                BackgroundColor(Color::srgb(120.0, 120.0, 120.0)),
-                UnitSelectionAction::SelectUnit,
+                BackgroundColor(Color::srgb(0.7, 0.7, 0.7)),
+                UnitSelectionAction::SelectUnit(i),
             )).with_children(|parent| {
                 parent.spawn((
                     Text::new(unit.0.clone()),
@@ -149,6 +158,7 @@ fn selection_action(
     >,
     mut game_state: ResMut<NextState<GameState>>,
     mut application_state: ResMut<NextState<AppState>>,
+    mut units_query: Query<&mut UnitsSelectedForMap>,
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
@@ -163,8 +173,17 @@ fn selection_action(
                     game_state.set(GameState::InBattle);
                 }
                 // Probably don't need this here
-                UnitSelectionAction::SelectUnit => {
-                    info!("SELECTED UNIT")
+                UnitSelectionAction::SelectUnit(i) => {
+                    let mut units = units_query.single_mut();
+                    if units.selected.len() < 3{
+                        if  let Some(index) = units.selected.iter().position(|value| *value == *i) {
+                            units.selected.swap_remove(index);
+                        } else {
+                            units.selected.push(*i);
+                        }
+                    }
+
+                    info!("SELECTED UNIT, {}. Units: {:?}", i, units.selected)
                 }
             }
         }
