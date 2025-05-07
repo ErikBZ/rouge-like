@@ -1,8 +1,12 @@
+use std::collections::VecDeque;
 use bevy::prelude::*;
-// TODO: Be consistent. Choose either crate or super
-use super::{GameState, AvailableUnits};
-use crate::{despawn_screen, AppState};
 
+// TODO: Be consistent. Choose either crate or super
+use super::{AvailableUnits, GameState, OnLevelScreen};
+use crate::{despawn_screen, AppState};
+use crate::game::UnitStats;
+
+const MAX_NUMBER_OF_UNITS: usize = 3;
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 
 #[derive(Component)]
@@ -14,9 +18,11 @@ struct UnitsSelectedForMap {
 }
 
 #[derive(Component)]
-enum UnitSelectionAction {
-    Back,
-    GoToMap,
+pub struct SelectedUnits {
+    pub queue: VecDeque<UnitStats>
+}
+
+#[derive(Component)] enum UnitSelectionAction { Back, GoToMap,
     SelectUnit(usize),
     Play
 }
@@ -35,6 +41,11 @@ fn init_screen(
     commands.spawn((
         UnitsSelectedForMap{selected: Vec::new()},
         OnUnitSelectionScreen
+    ));
+
+    commands.spawn((
+        SelectedUnits{queue: VecDeque::new()},
+        OnLevelScreen
     ));
 
     commands.spawn((
@@ -159,6 +170,8 @@ fn selection_action(
     mut game_state: ResMut<NextState<GameState>>,
     mut application_state: ResMut<NextState<AppState>>,
     mut units_query: Query<&mut UnitsSelectedForMap>,
+    mut selected_units_query: Query<&mut SelectedUnits>,
+    units_available: Res<AvailableUnits>
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
@@ -171,11 +184,17 @@ fn selection_action(
                 },
                 UnitSelectionAction::Play => {
                     game_state.set(GameState::InBattle);
+                    let units = units_query.single();
+                    let mut selected_units = selected_units_query.single_mut();
+
+                    for i in units.selected.iter() {
+                        selected_units.queue.push_back(units_available.units[*i].1.clone());
+                    }
                 }
                 // Probably don't need this here
                 UnitSelectionAction::SelectUnit(i) => {
                     let mut units = units_query.single_mut();
-                    if units.selected.len() < 3{
+                    if units.selected.len() < MAX_NUMBER_OF_UNITS {
                         if  let Some(index) = units.selected.iter().position(|value| *value == *i) {
                             units.selected.swap_remove(index);
                         } else {

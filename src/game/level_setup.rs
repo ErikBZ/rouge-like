@@ -7,8 +7,8 @@ use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
+use crate::game::unit_selection::SelectedUnits;
 use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel};
-
 use super::{UnitsOnMap, WeaponPack};
 
 // enum StartingLocations {
@@ -23,10 +23,12 @@ pub fn init_units_on_map(
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut units_on_map: ResMut<UnitsOnMap>,
+    mut selected_units_query: Query<&mut SelectedUnits>,
 ) {
     let mut units_loaded = false;
     for (entity, transform, entity_instance) in entity_query.iter() {
         units_loaded = true;
+        let mut selected_units = selected_units_query.single_mut();
         let texture = assert_server.load("tilesets/Dungeon_Character_2.png");
         let grid_coords = translation_to_grid_coords(transform.translation.xy(), IVec2::splat(GRID_SIZE));
         let layout = texture_atlases.add(TextureAtlasLayout::from_grid(
@@ -53,9 +55,14 @@ pub fn init_units_on_map(
                 )
             },
             "Player_Start" => {
+                if selected_units.queue.is_empty() {
+                    warn!("No more selected units. Skipping place");
+                    continue;
+                }
+
                 info!("Creating player unit on map");
                 commands.entity(entity).insert(Player);
-                let stats = UnitStats::player();
+                let stats = selected_units.queue.pop_back().unwrap().clone();
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
                 (
                     TextureAtlas {

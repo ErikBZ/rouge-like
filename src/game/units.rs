@@ -53,7 +53,7 @@ pub fn check_for_team_refresh(
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct UnitStats {
     pub hp: u32,
     pub def: u32,
