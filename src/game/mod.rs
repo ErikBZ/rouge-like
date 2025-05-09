@@ -1,6 +1,7 @@
 use bevy::{color::palettes::css::BLACK, prelude::*, utils:: {HashMap, HashSet}};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
+use bevy_asset_loader::prelude::*;
 use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
 
 use crate::{despawn_screen, AppState};
@@ -15,6 +16,7 @@ mod unit_selection;
 mod map_selection;
 mod rewards;
 mod chest_selection;
+mod assets;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
@@ -25,6 +27,7 @@ use unit_selection::unit_selection_plugin;
 use map_selection::map_selection_plugin;
 use rewards::rewards_plugin;
 use chest_selection::chest_selection_plugin;
+use assets::*;
 
 const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 const REQUIRED_GAME_COMPONENTS: u32 = 1;
@@ -46,6 +49,12 @@ pub struct MouseGridCoords(GridCoords);
 #[derive(Default, Resource, Debug)]
 struct AvailableUnits {
     units: Vec<(String, UnitStats)>
+}
+
+#[derive(Resource, AssetCollection)]
+struct TestUnits{
+    #[asset(path="rouge/units.ron")]
+    s: Handle<UnitAsset>
 }
 
 #[derive(Default, Component, Debug)]
@@ -70,6 +79,7 @@ struct PlayerTurnLabel;
 // TODO: Create a top level State and per turn state.
 enum GameState {
     #[default]
+    Preloading,
     Loading,
     UnitSelection,
     MapSelection,
@@ -184,6 +194,7 @@ pub fn game_plugin(app: &mut App) {
     // TODO: Despawn resources that won't be needed outside
     app
         .add_plugins(LdtkPlugin)
+        .add_plugins(GameAssetPlugin)
         .insert_resource(LevelSelection::index(0))
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
@@ -193,6 +204,10 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<AvailableUnits>()
         .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
+        .add_loading_state(LoadingState::new(GameState::Preloading)
+            .continue_to_state(GameState::Loading)
+            .load_collection::<TestUnits>()
+        )
         .add_plugins(unit_selection_plugin)
         .add_plugins(map_selection_plugin)
         .add_plugins(rewards_plugin)

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
+use serde::Deserialize;
 
 use super::{BattleState, Player, Weapons};
 use super::weapon::Weapon;
@@ -53,7 +54,7 @@ pub fn check_for_team_refresh(
     }
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, TypePath, Deserialize)]
 pub struct UnitStats {
     pub hp: u32,
     pub def: u32,
