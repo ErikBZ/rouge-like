@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::log::info;
 use bevy_asset::{io::Reader, Asset, AssetLoader, LoadContext};
 use crate::game::units::UnitStats;
 use crate::game::weapon::Weapon;
@@ -22,6 +23,7 @@ pub struct WeaponAsset {
 // Interesting, for a struct with a generic param, you need to use it right away
 // so that why's you need PhantomData
 pub struct GameAssetLoader<A> {
+    extensions: Vec<&'static str>,
     _marker: PhantomData<A>
 }
 
@@ -35,9 +37,11 @@ impl Plugin for GameAssetPlugin
             .init_asset::<WeaponAsset>()
             .init_asset::<UnitAsset>()
             .register_asset_loader(GameAssetLoader::<UnitAsset> {
-                _marker: PhantomData,
+                extensions: vec!["units.ron"],
+                _marker: PhantomData
             })
             .register_asset_loader(GameAssetLoader::<WeaponAsset> {
+                extensions: vec!["weapons.ron"],
                 _marker: PhantomData
             });
     }
@@ -69,9 +73,14 @@ where
         _settings: &(),
         _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
+        info!("Loaded the loader");
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let asset = from_bytes::<A>(&bytes)?;
         Ok(asset)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &self.extensions
     }
 }

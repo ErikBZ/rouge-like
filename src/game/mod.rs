@@ -3,6 +3,7 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 use bevy_asset_loader::prelude::*;
 use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
+use std::marker::PhantomData;
 
 use crate::{despawn_screen, AppState};
 mod movement;
@@ -53,7 +54,7 @@ struct AvailableUnits {
 
 #[derive(Resource, AssetCollection)]
 struct TestUnits{
-    #[asset(path="rouge/units.ron")]
+    #[asset(path="rouge/available.units.ron")]
     s: Handle<UnitAsset>
 }
 
@@ -202,6 +203,7 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<GameComponentsLoaded>()
         .init_resource::<BattleComponentsLoaded>()
         .init_resource::<AvailableUnits>()
+        .init_asset::<UnitAsset>()
         .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
         .add_loading_state(LoadingState::new(GameState::Preloading)
@@ -214,7 +216,7 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(chest_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
         .add_systems(Update, (
-            init_available_units,
+            // init_available_units,
             exit_game_loading
         ).run_if(in_state(GameState::Loading)))
         // TODO: Should we force this to run when the level loads
@@ -273,8 +275,13 @@ fn exit_game_loading(
 
 fn init_available_units(
     mut units_available: ResMut<AvailableUnits>,
-    mut components_loaded: ResMut<GameComponentsLoaded>
+    mut components_loaded: ResMut<GameComponentsLoaded>,
+    server: Res<AssetServer>,
 ) {
+    info!("Trying to load assets");
+    let units: Handle<UnitAsset> = server.load("rouge/units.ron");
+    info!("Maybe did it?");
+
     if units_available.units.is_empty() {
         units_available.units.push(("Scooby".to_string(), UnitStats::default()));
         units_available.units.push(("Courage".to_string(), UnitStats::default()));
@@ -288,8 +295,8 @@ fn init_available_units(
         units_available.units.push(("Orangutan".to_string(), UnitStats::default()));
         units_available.units.push(("Tom".to_string(), UnitStats::default()));
         units_available.units.push(("Double D".to_string(), UnitStats::default()));
-        components_loaded.0 += 1;
     }
+    components_loaded.0 += 1;
 }
 
 fn transition_to_game(
