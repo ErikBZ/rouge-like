@@ -31,7 +31,6 @@ use chest_selection::chest_selection_plugin;
 use assets::*;
 
 const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
-const REQUIRED_GAME_COMPONENTS: u32 = 1;
 const GRID_SIZE: i32 = 16;
 const GRID_SIZE_VEC: IVec2 = IVec2 {
     x: 16,
@@ -50,7 +49,7 @@ pub struct MouseGridCoords(GridCoords);
 #[derive(Resource, AssetCollection)]
 pub struct AvailableUnits {
     #[asset(path="rouge/available.units.ron")]
-    pub s: Handle<UnitAsset>
+    pub s: Handle<UnitCollection>
 }
 
 #[derive(Default, Component, Debug)]
@@ -207,9 +206,6 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(rewards_plugin)
         .add_plugins(chest_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
-        // .add_systems(OnEnter(GameState::Loading), (
-        //     init_available_units,
-        // ))
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(BattleState::Loading), init_battle)
@@ -254,51 +250,6 @@ fn refresh_units(
     team_q.single_mut().clear();
 }
 
-fn exit_game_loading(
-    mut state: ResMut<NextState<GameState>>,
-    components_loaded: Res<GameComponentsLoaded>
-) {
-    if components_loaded.0 >= REQUIRED_GAME_COMPONENTS {
-        info!("Starting game and transition over to select state");
-        state.set(GameState::UnitSelection);
-    }
-}
-
-fn init_available_units() {
-    let mut units: Vec<UnitStats> = Vec::new();
-
-    if units.is_empty() {
-        units.push(UnitStats { name: "Scooby".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Courage".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Lassie".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Dog".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Cat".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Elephant".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Giraffe".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Slow Loris".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Chipmanzee".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Orangutan".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Tom".to_string(), ..Default::default() });
-        units.push(UnitStats{ name: "Double D".to_string(), ..Default::default() });
-    }
-
-    use std::fs::File;
-    let mut file = match File::create("available.units.ron") {
-        Ok(f) => f,
-        Err(e) => {
-            error!("{}", e);
-            return
-        }
-    };
-
-    let _ = file.write_all(
-        ron::ser::to_string_pretty(
-            &units,
-            ron::ser::PrettyConfig::default()
-        ).unwrap_or("There was an error".to_string()).as_bytes()
-    );
-}
-
 fn transition_to_game(
     mut state: ResMut<NextState<BattleState>>,
     components_loaded: Res<BattleComponentsLoaded>
@@ -309,27 +260,6 @@ fn transition_to_game(
         state.set(BattleState::Select);
     }
 }
-
-// fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
-//     move |current_state: Option<Res<State<S>>>, current_state_two: Option<Res<State<T>>>| match current_state {
-//         Some(current_state) => match current_state_two {
-//             Some(current_state_two) => *current_state == state && *current_state_two == state_two,
-//             None => false
-//         },
-//         None => {
-//             warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
-//                     let debug_state = format!("{state:?}");
-//                     let result = debug_state
-//                         .split("::")
-//                         .next()
-//                         .unwrap_or("Unknown State Type");
-//                     result.to_string()
-//                 });
-//
-//             false
-//         }
-//     }
-// }
 
 // Loads the given ldtk file
 // Must run before init_level_walls and init_units_on_map

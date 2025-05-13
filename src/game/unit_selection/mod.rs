@@ -1,14 +1,13 @@
 use std::collections::VecDeque;
 use bevy::prelude::*;
 
-use super::assets::UnitAsset;
+use super::assets::UnitCollection;
 // TODO: Be consistent. Choose either crate or super
 use super::{AvailableUnits, GameState, OnLevelScreen};
 use crate::{despawn_screen, AppState};
 use crate::game::UnitStats;
 
 const MAX_NUMBER_OF_UNITS: usize = 3;
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 
 #[derive(Component)]
 struct OnUnitSelectionScreen;
@@ -44,8 +43,8 @@ pub fn unit_selection_plugin(app: &mut App) {
 
 fn init_screen(
     mut commands: Commands, 
-    units: Res<AvailableUnits>,
-    unit_assets: Res<Assets<UnitAsset>>,
+    unit_handle: Res<AvailableUnits>,
+    unit_collection: Res<Assets<UnitCollection>>,
 ) {
     commands.spawn((
         UnitsSelectedForMap{selected: Vec::new()},
@@ -85,7 +84,7 @@ fn init_screen(
         OnUnitSelectionScreen
     )).with_children(|parent| {
 
-        if let Some(unit_asset) = unit_assets.get(units.s.id()) {
+        if let Some(unit_asset) = unit_collection.get(unit_handle.s.id()) {
             create_unit_selection_dialog(parent, unit_asset);
         } else {
             error!("Unable to create Unit Selection buttons. Asset not properly loaded.")
@@ -133,7 +132,7 @@ fn init_screen(
 
 fn create_unit_selection_dialog(
     parent: &mut ChildBuilder, 
-    units_available: &UnitAsset
+    units_available: &UnitCollection
 ) {
     parent.spawn((
         Node {
@@ -202,8 +201,8 @@ fn selection_action(
     mut game_state: ResMut<NextState<GameState>>,
     mut units_query: Query<&mut UnitsSelectedForMap>,
     mut selected_units_query: Query<&mut SelectedUnits>,
-    available_units_handle: Res<AvailableUnits>,
-    unit_assets: Res<Assets<UnitAsset>>
+    unit_handle: Res<AvailableUnits>,
+    unit_collection: Res<Assets<UnitCollection>>
 ) {
     for (interaction, action) in &interaction_query {
         if *interaction == Interaction::Pressed {
@@ -214,7 +213,7 @@ fn selection_action(
                     let mut selected_units = selected_units_query.single_mut();
 
                     for i in units.selected.iter() {
-                        let units_available = unit_assets.get(available_units_handle.s.id()).unwrap();
+                        let units_available = unit_collection.get(unit_handle.s.id()).unwrap();
                         selected_units.queue.push_back(units_available.units[*i].clone());
                     }
                 }

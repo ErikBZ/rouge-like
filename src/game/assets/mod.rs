@@ -10,13 +10,13 @@ use thiserror::Error;
 
 
 #[derive(Asset, Debug, TypePath, Deserialize, Serialize)]
-pub struct UnitAsset {
+pub struct UnitCollection {
     pub units: Vec<UnitStats>
 }
 
 #[derive(Asset, Debug, TypePath, Deserialize)]
-pub struct WeaponAsset {
-    units: Vec<Weapon>
+pub struct WeaponCollection {
+    weapons: Vec<Weapon>
 }
 
 // Credit: Used a lot of code from bevy_common_assets. Thanks [https://github.com/NiklasEi/bevy_common_assets.git]
@@ -34,13 +34,13 @@ impl Plugin for GameAssetPlugin
 {
     fn build(&self, app: &mut App) {
         app
-            .init_asset::<WeaponAsset>()
-            .init_asset::<UnitAsset>()
-            .register_asset_loader(GameAssetLoader::<UnitAsset> {
+            .init_asset::<WeaponCollection>()
+            .init_asset::<UnitCollection>()
+            .register_asset_loader(GameAssetLoader::<UnitCollection> {
                 extensions: vec!["units.ron"],
                 _marker: PhantomData
             })
-            .register_asset_loader(GameAssetLoader::<WeaponAsset> {
+            .register_asset_loader(GameAssetLoader::<WeaponCollection> {
                 extensions: vec!["weapons.ron"],
                 _marker: PhantomData
             });
