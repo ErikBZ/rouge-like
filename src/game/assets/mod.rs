@@ -5,13 +5,13 @@ use crate::game::units::UnitStats;
 use crate::game::weapon::Weapon;
 use std::marker::PhantomData;
 use ron::de::from_bytes;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 
-#[derive(Asset, Debug, TypePath, Deserialize)]
+#[derive(Asset, Debug, TypePath, Deserialize, Serialize)]
 pub struct UnitAsset {
-    units: Vec<UnitStats>
+    pub units: Vec<UnitStats>
 }
 
 #[derive(Asset, Debug, TypePath, Deserialize)]

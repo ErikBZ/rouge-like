@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{BattleState, Player, Weapons};
 use super::weapon::Weapon;
@@ -54,8 +54,9 @@ pub fn check_for_team_refresh(
     }
 }
 
-#[derive(Component, Debug, Clone, TypePath, Deserialize)]
+#[derive(Component, Debug, Clone, TypePath, Deserialize, Serialize)]
 pub struct UnitStats {
+    pub name: String,
     pub hp: u32,
     pub def: u32,
     pub atk: u32,
@@ -66,6 +67,7 @@ pub struct UnitStats {
 impl Default for UnitStats {
     fn default() -> Self {
         UnitStats {
+            name: "".to_string(),
             hp: 10,
             def: 0,
             atk: 3,
@@ -78,6 +80,7 @@ impl Default for UnitStats {
 impl UnitStats {
     pub fn enemy() -> Self {
         UnitStats {
+            name: "Enemy".to_string(),
             hp: 3,
             def: 0,
             atk: 1,
@@ -88,6 +91,7 @@ impl UnitStats {
 
     pub fn player() -> Self {
         UnitStats {
+            name: "Player".to_string(),
             hp: 10,
             def: 1,
             atk: 3,

@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use bevy::prelude::*;
 
+use super::assets::UnitAsset;
 // TODO: Be consistent. Choose either crate or super
 use super::{AvailableUnits, GameState, OnLevelScreen};
 use crate::{despawn_screen, AppState};
@@ -22,21 +23,29 @@ pub struct SelectedUnits {
     pub queue: VecDeque<UnitStats>
 }
 
-#[derive(Component)] enum UnitSelectionAction { Back, GoToMap,
-    SelectUnit(usize),
-    Play
+#[derive(Component)]
+enum MenuAction { 
+    Back, 
+    GoToMap,
+}
+
+#[derive(Component)]
+enum Selection { 
+    Confirm,
+    Unit(usize),
 }
 
 pub fn unit_selection_plugin(app: &mut App) {
     app
         .add_systems(OnEnter(GameState::UnitSelection), init_screen)
-        .add_systems(Update, selection_action.run_if(in_state(GameState::UnitSelection)))
+        .add_systems(Update, (selection_action, menu_action).run_if(in_state(GameState::UnitSelection)))
         .add_systems(OnExit(GameState::UnitSelection), despawn_screen::<OnUnitSelectionScreen>);
 }
 
 fn init_screen(
     mut commands: Commands, 
-    units: Res<AvailableUnits>
+    units: Res<AvailableUnits>,
+    unit_assets: Res<Assets<UnitAsset>>,
 ) {
     commands.spawn((
         UnitsSelectedForMap{selected: Vec::new()},
@@ -59,7 +68,7 @@ fn init_screen(
         OnUnitSelectionScreen
     )).with_children(|parent| {
         create_temp_button(
-            UnitSelectionAction::Back,
+            MenuAction::Back,
             "Back",
             parent
         );
@@ -75,7 +84,12 @@ fn init_screen(
         },
         OnUnitSelectionScreen
     )).with_children(|parent| {
-        create_unit_selection_dialog(parent, units);
+
+        if let Some(unit_asset) = unit_assets.get(units.s.id()) {
+            create_unit_selection_dialog(parent, unit_asset);
+        } else {
+            error!("Unable to create Unit Selection buttons. Asset not properly loaded.")
+        }
     });
     
     commands.spawn((
@@ -90,19 +104,37 @@ fn init_screen(
         OnUnitSelectionScreen
     )).with_children(|parent| {
         create_temp_button(
-            UnitSelectionAction::GoToMap,
+            MenuAction::GoToMap,
             "Map",
             parent
         );
-        create_temp_button(
-            UnitSelectionAction::Play,
-            "Play",
-            parent
-        );
+
+        parent.spawn((
+            Button,
+            Node {
+                width: Val::Px(125.0),
+                height: Val::Px(65.0),
+                margin: UiRect::all(Val::Px(20.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
+                ..default()
+            },
+            BackgroundColor(Color::BLACK),
+            Selection::Confirm,
+        )).with_children(|parent| {
+            parent.spawn((
+                Text::new("Play".to_string()),
+                TextColor(Color::WHITE),
+            ));
+        });
     });
 }
 
-fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<AvailableUnits>) {
+fn create_unit_selection_dialog(
+    parent: &mut ChildBuilder, 
+    units_available: &UnitAsset
+) {
     parent.spawn((
         Node {
             width: Val::Percent(75.),
@@ -129,10 +161,10 @@ fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.7, 0.7, 0.7)),
-                UnitSelectionAction::SelectUnit(i),
+                Selection::Unit(i),
             )).with_children(|parent| {
                 parent.spawn((
-                    Text::new(unit.0.clone()),
+                    Text::new(unit.name.clone()),
                     TextColor(Color::BLACK),
                 ));
             });
@@ -140,7 +172,7 @@ fn create_unit_selection_dialog(parent: &mut ChildBuilder, units_available: Res<
     });
 }
 
-fn create_temp_button(action: UnitSelectionAction, label: &'static str, p: &mut ChildBuilder) {
+fn create_temp_button(action: MenuAction, label: &'static str, p: &mut ChildBuilder) {
     p.spawn((
         Button,
         Node {
@@ -164,35 +196,29 @@ fn create_temp_button(action: UnitSelectionAction, label: &'static str, p: &mut 
 
 fn selection_action(
     interaction_query: Query<
-        (&Interaction, &UnitSelectionAction),
+        (&Interaction, &Selection),
         (Changed<Interaction>, With<Button>),
     >,
     mut game_state: ResMut<NextState<GameState>>,
-    mut application_state: ResMut<NextState<AppState>>,
     mut units_query: Query<&mut UnitsSelectedForMap>,
     mut selected_units_query: Query<&mut SelectedUnits>,
-    units_available: Res<AvailableUnits>
-){
-    for (interaction, menu_button_action) in &interaction_query {
+    available_units_handle: Res<AvailableUnits>,
+    unit_assets: Res<Assets<UnitAsset>>
+) {
+    for (interaction, action) in &interaction_query {
         if *interaction == Interaction::Pressed {
-            match menu_button_action {
-                UnitSelectionAction::Back => {
-                    application_state.set(AppState::Menu);
-                },
-                UnitSelectionAction::GoToMap => {
-                    game_state.set(GameState::MapSelection);
-                },
-                UnitSelectionAction::Play => {
+            match action {
+                Selection::Confirm => {
                     game_state.set(GameState::InBattle);
                     let units = units_query.single();
                     let mut selected_units = selected_units_query.single_mut();
 
                     for i in units.selected.iter() {
-                        selected_units.queue.push_back(units_available.units[*i].1.clone());
+                        let units_available = unit_assets.get(available_units_handle.s.id()).unwrap();
+                        selected_units.queue.push_back(units_available.units[*i].clone());
                     }
                 }
-                // Probably don't need this here
-                UnitSelectionAction::SelectUnit(i) => {
+                Selection::Unit(i) => {
                     let mut units = units_query.single_mut();
                     if units.selected.len() < MAX_NUMBER_OF_UNITS {
                         if  let Some(index) = units.selected.iter().position(|value| *value == *i) {
@@ -202,8 +228,29 @@ fn selection_action(
                         }
                     }
 
-                    info!("SELECTED UNIT, {}. Units: {:?}", i, units.selected)
-                }
+                    info!("SELECTED UNIT, {}. Units: {:?}", i, units.selected) }
+            }
+        }
+    }
+}
+
+fn menu_action(
+    interaction_query: Query<
+        (&Interaction, &MenuAction),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut game_state: ResMut<NextState<GameState>>,
+    mut application_state: ResMut<NextState<AppState>>,
+){
+    for (interaction, menu_button_action) in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            match menu_button_action {
+                MenuAction::Back => {
+                    application_state.set(AppState::Menu);
+                },
+                MenuAction::GoToMap => {
+                    game_state.set(GameState::MapSelection);
+                },
             }
         }
     }

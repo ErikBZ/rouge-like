@@ -3,7 +3,7 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 use bevy_asset_loader::prelude::*;
 use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
-use std::marker::PhantomData;
+use std::{io::Write, marker::PhantomData};
 
 use crate::{despawn_screen, AppState};
 mod movement;
@@ -47,15 +47,10 @@ struct Enemy;
 #[derive(Default, Resource, Debug)]
 pub struct MouseGridCoords(GridCoords);
 
-#[derive(Default, Resource, Debug)]
-struct AvailableUnits {
-    units: Vec<(String, UnitStats)>
-}
-
 #[derive(Resource, AssetCollection)]
-struct TestUnits{
+pub struct AvailableUnits {
     #[asset(path="rouge/available.units.ron")]
-    s: Handle<UnitAsset>
+    pub s: Handle<UnitAsset>
 }
 
 #[derive(Default, Component, Debug)]
@@ -80,7 +75,6 @@ struct PlayerTurnLabel;
 // TODO: Create a top level State and per turn state.
 enum GameState {
     #[default]
-    Preloading,
     Loading,
     UnitSelection,
     MapSelection,
@@ -202,23 +196,20 @@ pub fn game_plugin(app: &mut App) {
         .init_resource::<UnitsOnMap>()
         .init_resource::<GameComponentsLoaded>()
         .init_resource::<BattleComponentsLoaded>()
-        .init_resource::<AvailableUnits>()
-        .init_asset::<UnitAsset>()
         .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
-        .add_loading_state(LoadingState::new(GameState::Preloading)
-            .continue_to_state(GameState::Loading)
-            .load_collection::<TestUnits>()
+        .add_loading_state(LoadingState::new(GameState::Loading)
+            .continue_to_state(GameState::UnitSelection)
+            .load_collection::<AvailableUnits>()
         )
         .add_plugins(unit_selection_plugin)
         .add_plugins(map_selection_plugin)
         .add_plugins(rewards_plugin)
         .add_plugins(chest_selection_plugin)
         .register_ldtk_int_cell::<WallBundle>(1)
-        .add_systems(Update, (
-            // init_available_units,
-            exit_game_loading
-        ).run_if(in_state(GameState::Loading)))
+        // .add_systems(OnEnter(GameState::Loading), (
+        //     init_available_units,
+        // ))
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(OnEnter(BattleState::Loading), init_battle)
@@ -273,30 +264,39 @@ fn exit_game_loading(
     }
 }
 
-fn init_available_units(
-    mut units_available: ResMut<AvailableUnits>,
-    mut components_loaded: ResMut<GameComponentsLoaded>,
-    server: Res<AssetServer>,
-) {
-    info!("Trying to load assets");
-    let units: Handle<UnitAsset> = server.load("rouge/units.ron");
-    info!("Maybe did it?");
+fn init_available_units() {
+    let mut units: Vec<UnitStats> = Vec::new();
 
-    if units_available.units.is_empty() {
-        units_available.units.push(("Scooby".to_string(), UnitStats::default()));
-        units_available.units.push(("Courage".to_string(), UnitStats::default()));
-        units_available.units.push(("Lassie".to_string(), UnitStats::default()));
-        units_available.units.push(("Dog".to_string(), UnitStats::default()));
-        units_available.units.push(("Cat".to_string(), UnitStats::default()));
-        units_available.units.push(("Elephant".to_string(), UnitStats::default()));
-        units_available.units.push(("Giraffe".to_string(), UnitStats::default()));
-        units_available.units.push(("Slow Loris".to_string(), UnitStats::default()));
-        units_available.units.push(("Chipmanzee".to_string(), UnitStats::default()));
-        units_available.units.push(("Orangutan".to_string(), UnitStats::default()));
-        units_available.units.push(("Tom".to_string(), UnitStats::default()));
-        units_available.units.push(("Double D".to_string(), UnitStats::default()));
+    if units.is_empty() {
+        units.push(UnitStats { name: "Scooby".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Courage".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Lassie".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Dog".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Cat".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Elephant".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Giraffe".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Slow Loris".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Chipmanzee".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Orangutan".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Tom".to_string(), ..Default::default() });
+        units.push(UnitStats{ name: "Double D".to_string(), ..Default::default() });
     }
-    components_loaded.0 += 1;
+
+    use std::fs::File;
+    let mut file = match File::create("available.units.ron") {
+        Ok(f) => f,
+        Err(e) => {
+            error!("{}", e);
+            return
+        }
+    };
+
+    let _ = file.write_all(
+        ron::ser::to_string_pretty(
+            &units,
+            ron::ser::PrettyConfig::default()
+        ).unwrap_or("There was an error".to_string()).as_bytes()
+    );
 }
 
 fn transition_to_game(
