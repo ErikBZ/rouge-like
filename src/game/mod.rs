@@ -1,7 +1,9 @@
 use bevy::{color::palettes::css::BLACK, prelude::*, utils:: {HashMap, HashSet}};
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
+use bevy_asset_loader::prelude::*;
 use level_setup::{init_units_on_map, setup_transition_animation, transition_animation};
+use std::{io::Write, marker::PhantomData};
 
 use crate::{despawn_screen, AppState};
 mod movement;
@@ -15,6 +17,7 @@ mod unit_selection;
 mod map_selection;
 mod rewards;
 mod chest_selection;
+mod assets;
 
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::*;
@@ -25,8 +28,9 @@ use unit_selection::unit_selection_plugin;
 use map_selection::map_selection_plugin;
 use rewards::rewards_plugin;
 use chest_selection::chest_selection_plugin;
+use assets::*;
 
-const REQUIRED_COMPONENTS: u32 = 2;
+const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 const GRID_SIZE: i32 = 16;
 const GRID_SIZE_VEC: IVec2 = IVec2 {
     x: 16,
@@ -41,6 +45,12 @@ struct Enemy;
 
 #[derive(Default, Resource, Debug)]
 pub struct MouseGridCoords(GridCoords);
+
+#[derive(Resource, AssetCollection)]
+pub struct AvailableUnits {
+    #[asset(path="rouge/available.units.ron")]
+    pub s: Handle<UnitCollection>
+}
 
 #[derive(Default, Component, Debug)]
 struct Wall;
@@ -64,12 +74,16 @@ struct PlayerTurnLabel;
 // TODO: Create a top level State and per turn state.
 enum GameState {
     #[default]
+    Loading,
     UnitSelection,
     MapSelection,
     InBattle,
     ChestSelection,
     Rewards
 }
+
+#[derive(Default, Resource, Debug)]
+struct GameComponentsLoaded(u32);
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(GameState = GameState::InBattle)]
@@ -97,7 +111,7 @@ struct LevelWalls {
 }
 
 #[derive(Default, Resource, Debug)]
-struct InitComponentsLoaded(u32);
+struct BattleComponentsLoaded(u32);
 
 impl LevelWalls {
     fn in_wall(&self, grid_coords: &GridCoords) -> bool {
@@ -174,13 +188,19 @@ pub fn game_plugin(app: &mut App) {
     // TODO: Despawn resources that won't be needed outside
     app
         .add_plugins(LdtkPlugin)
+        .add_plugins(GameAssetPlugin)
         .insert_resource(LevelSelection::index(0))
         .init_resource::<LevelWalls>()
         .init_resource::<MouseGridCoords>()
         .init_resource::<UnitsOnMap>()
-        .init_resource::<InitComponentsLoaded>()
+        .init_resource::<GameComponentsLoaded>()
+        .init_resource::<BattleComponentsLoaded>()
         .add_sub_state::<GameState>()
         .add_sub_state::<BattleState>()
+        .add_loading_state(LoadingState::new(GameState::Loading)
+            .continue_to_state(GameState::UnitSelection)
+            .load_collection::<AvailableUnits>()
+        )
         .add_plugins(unit_selection_plugin)
         .add_plugins(map_selection_plugin)
         .add_plugins(rewards_plugin)
@@ -188,7 +208,7 @@ pub fn game_plugin(app: &mut App) {
         .register_ldtk_int_cell::<WallBundle>(1)
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
-        .add_systems(OnEnter(BattleState::Loading), init_game)
+        .add_systems(OnEnter(BattleState::Loading), init_battle)
         .add_systems(Update, (
             init_level_walls,
             init_units_on_map,
@@ -232,38 +252,18 @@ fn refresh_units(
 
 fn transition_to_game(
     mut state: ResMut<NextState<BattleState>>,
-    components_loaded: Res<InitComponentsLoaded>
+    components_loaded: Res<BattleComponentsLoaded>
 ) {
-    if components_loaded.0 >= REQUIRED_COMPONENTS {
+    info!("{} >= {}", components_loaded.0, REQUIRED_BATTLE_COMPONENTS);
+    if components_loaded.0 >= REQUIRED_BATTLE_COMPONENTS {
         info!("Starting game and transition over to select state");
         state.set(BattleState::Select);
     }
 }
 
-// fn check_two_sates<S: States, T: States>(state: S, state_two: T) -> impl FnMut(Option<Res<State<S>>>, Option<Res<State<T>>>) -> bool + Clone {
-//     move |current_state: Option<Res<State<S>>>, current_state_two: Option<Res<State<T>>>| match current_state {
-//         Some(current_state) => match current_state_two {
-//             Some(current_state_two) => *current_state == state && *current_state_two == state_two,
-//             None => false
-//         },
-//         None => {
-//             warn_once!("No state matching the type for {} exists - did you forget to `add_state` when initializing the app?", {
-//                     let debug_state = format!("{state:?}");
-//                     let result = debug_state
-//                         .split("::")
-//                         .next()
-//                         .unwrap_or("Unknown State Type");
-//                     result.to_string()
-//                 });
-//
-//             false
-//         }
-//     }
-// }
-
 // Loads the given ldtk file
 // Must run before init_level_walls and init_units_on_map
-fn init_game(
+fn init_battle(
     mut commands: Commands, 
     assert_server: Res<AssetServer>, 
     mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
@@ -340,9 +340,7 @@ fn init_game(
         OnLevelScreen
     )).with_children(|parent| {
         parent.spawn((
-            Button {
-                ..default()
-            },
+            Button,
             Node {
                 width: Val::Px(250.0),
                 height: Val::Px(65.0),
@@ -362,7 +360,7 @@ fn init_game(
     });
 }
 
-fn reset_game(mut components_loaded: ResMut<InitComponentsLoaded>) {
+fn reset_game(mut components_loaded: ResMut<BattleComponentsLoaded>) {
     components_loaded.0 = 0;
 }
 
@@ -395,7 +393,7 @@ fn exit_to_menu(
 fn init_level_walls(
     mut level_walls: ResMut<LevelWalls>,
     mut level_events: EventReader<LevelEvent>,
-    mut components_loaded: ResMut<InitComponentsLoaded>,
+    mut components_loaded: ResMut<BattleComponentsLoaded>,
     // TODO: does this get inited by the WallBundle line?
     walls: Query<&GridCoords, With<Wall>>,
     ldtk_project_entities: Query<&LdtkProjectHandle>,

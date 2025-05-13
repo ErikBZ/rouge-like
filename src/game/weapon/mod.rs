@@ -1,9 +1,11 @@
 use rand::distr::{Distribution, StandardUniform};
 use rand::seq::IndexedRandom;
 use rand::Rng;
+use bevy::prelude::TypePath;
+use serde::Deserialize;
 
 // TODO: Try using bevy_asset_loader with a Loading state
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Deserialize)]
 pub enum Rarity {
     Common,
     Uncommon,
@@ -23,7 +25,7 @@ impl Distribution<Rarity> for StandardUniform {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Deserialize)]
 pub enum WeaponType {
     Lance,
     Sword,
@@ -35,7 +37,7 @@ pub enum WeaponType {
 }
 
 // Situations when an effect may take place
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Deserialize)]
 pub enum WeaponEffect {
     OnAttack,
     AfterAttack,
@@ -43,7 +45,7 @@ pub enum WeaponEffect {
     Passive
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Deserialize)]
 pub enum WeaponRange {
     // Makes contact
     Melee(u32),
@@ -51,7 +53,7 @@ pub enum WeaponRange {
     Ranged{min: u32, max: u32},
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, TypePath, Deserialize)]
 pub struct Weapon {
     pub attack: u32,
     pub hit: u32,

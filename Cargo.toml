@@ -4,9 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = "0.15"
+bevy = "0.15.1"
 bevy_ecs_ldtk = "0.11.0"
 bevy-inspector-egui = "0.29"
 epaint = "0.31.0"
 rand = "0.9.0"
+bevy_asset_loader = "0.22.0"
+serde = { version = "1.0.219", features = ["derive"]}
+ron = { version = "0.10.1" }
+bevy_asset = "0.15.1"
+thiserror = "2.0.12"
 

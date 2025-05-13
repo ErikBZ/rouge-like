@@ -1,29 +1,78 @@
+use std::collections::VecDeque;
 use bevy::prelude::*;
-use super::GameState;
-use crate::despawn_screen;
 
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+use super::assets::UnitCollection;
+// TODO: Be consistent. Choose either crate or super
+use super::{AvailableUnits, GameState, OnLevelScreen};
+use crate::{despawn_screen, AppState};
+use crate::game::UnitStats;
+
+const MAX_NUMBER_OF_UNITS: usize = 3;
 
 #[derive(Component)]
 struct OnUnitSelectionScreen;
 
 #[derive(Component)]
-enum UnitSelectionAction {
+struct UnitsSelectedForMap {
+    selected: Vec<usize>
+}
+
+#[derive(Component)]
+pub struct SelectedUnits {
+    pub queue: VecDeque<UnitStats>
+}
+
+#[derive(Component)]
+enum MenuAction { 
+    Back, 
     GoToMap,
-    SelectUnit,
-    Play
+}
+
+#[derive(Component)]
+enum Selection { 
+    Confirm,
+    Unit(usize),
 }
 
 pub fn unit_selection_plugin(app: &mut App) {
     app
         .add_systems(OnEnter(GameState::UnitSelection), init_screen)
-        .add_systems(Update, selection_action.run_if(in_state(GameState::UnitSelection)))
+        .add_systems(Update, (selection_action, menu_action).run_if(in_state(GameState::UnitSelection)))
         .add_systems(OnExit(GameState::UnitSelection), despawn_screen::<OnUnitSelectionScreen>);
 }
 
 fn init_screen(
     mut commands: Commands, 
+    unit_handle: Res<AvailableUnits>,
+    unit_collection: Res<Assets<UnitCollection>>,
 ) {
+    commands.spawn((
+        UnitsSelectedForMap{selected: Vec::new()},
+        OnUnitSelectionScreen
+    ));
+
+    commands.spawn((
+        SelectedUnits{queue: VecDeque::new()},
+        OnLevelScreen
+    ));
+
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(10.0),
+            align_items: AlignItems::Start,
+            justify_content: JustifyContent::Start,
+            ..default()
+        },
+        OnUnitSelectionScreen
+    )).with_children(|parent| {
+        create_temp_button(
+            MenuAction::Back,
+            "Back",
+            parent
+        );
+    });
+
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -34,43 +83,104 @@ fn init_screen(
         },
         OnUnitSelectionScreen
     )).with_children(|parent| {
-        parent.spawn(
+
+        if let Some(unit_asset) = unit_collection.get(unit_handle.s.id()) {
+            create_unit_selection_dialog(parent, unit_asset);
+        } else {
+            error!("Unable to create Unit Selection buttons. Asset not properly loaded.")
+        }
+    });
+    
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(10.0),
+            align_self: AlignSelf::FlexEnd,
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        OnUnitSelectionScreen
+    )).with_children(|parent| {
+        create_temp_button(
+            MenuAction::GoToMap,
+            "Map",
+            parent
+        );
+
+        parent.spawn((
+            Button,
             Node {
-                flex_direction: FlexDirection::Column,
+                width: Val::Px(125.0),
+                height: Val::Px(65.0),
+                margin: UiRect::all(Val::Px(20.0)),
+                justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
+                align_self: AlignSelf::Center,
                 ..default()
-            }
-        ).with_children(|parent| {
-            create_temp_button(
-                UnitSelectionAction::Play,
-                "Play",
-                parent
-            );
-            create_temp_button(
-                UnitSelectionAction::GoToMap,
-                "Go to Map Selection",
-                parent
-            );
-            create_temp_button(
-                UnitSelectionAction::SelectUnit,
-                "Select Unit",
-                parent
-            );
+            },
+            BackgroundColor(Color::BLACK),
+            Selection::Confirm,
+        )).with_children(|parent| {
+            parent.spawn((
+                Text::new("Play".to_string()),
+                TextColor(Color::WHITE),
+            ));
         });
     });
 }
 
-fn create_temp_button(action: UnitSelectionAction, label: &'static str, p: &mut ChildBuilder) {
-    p.spawn((
-        Button {
-            ..default()
-        },
+fn create_unit_selection_dialog(
+    parent: &mut ChildBuilder, 
+    units_available: &UnitCollection
+) {
+    parent.spawn((
         Node {
-            width: Val::Px(250.0),
+            width: Val::Percent(75.),
+            height: Val::Percent(80.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::SpaceEvenly,
+            flex_wrap: FlexWrap::Wrap,
+            overflow: Overflow::scroll_y(),
+            ..Default::default()
+        },
+        BackgroundColor(Color::srgb(0.5, 0.0, 0.0))
+    )).with_children(|p| {
+        // TODO: Create buttons for units to select
+        for (i, unit) in units_available.units.iter().enumerate() {
+            p.spawn((
+                Button,
+                Node {
+                    width: Val::Percent(15.0),
+                    height: Val::Percent(30.0),
+                    margin: UiRect::vertical(Val::Px(15.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.7, 0.7, 0.7)),
+                Selection::Unit(i),
+            )).with_children(|parent| {
+                parent.spawn((
+                    Text::new(unit.name.clone()),
+                    TextColor(Color::BLACK),
+                ));
+            });
+        }
+    });
+}
+
+fn create_temp_button(action: MenuAction, label: &'static str, p: &mut ChildBuilder) {
+    p.spawn((
+        Button,
+        Node {
+            width: Val::Px(125.0),
             height: Val::Px(65.0),
             margin: UiRect::all(Val::Px(20.0)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            align_self: AlignSelf::Center,
             ..default()
         },
         BackgroundColor(Color::BLACK),
@@ -85,24 +195,61 @@ fn create_temp_button(action: UnitSelectionAction, label: &'static str, p: &mut 
 
 fn selection_action(
     interaction_query: Query<
-        (&Interaction, &UnitSelectionAction),
+        (&Interaction, &Selection),
         (Changed<Interaction>, With<Button>),
     >,
     mut game_state: ResMut<NextState<GameState>>,
+    mut units_query: Query<&mut UnitsSelectedForMap>,
+    mut selected_units_query: Query<&mut SelectedUnits>,
+    unit_handle: Res<AvailableUnits>,
+    unit_collection: Res<Assets<UnitCollection>>
+) {
+    for (interaction, action) in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            match action {
+                Selection::Confirm => {
+                    game_state.set(GameState::InBattle);
+                    let units = units_query.single();
+                    let mut selected_units = selected_units_query.single_mut();
+
+                    for i in units.selected.iter() {
+                        let units_available = unit_collection.get(unit_handle.s.id()).unwrap();
+                        selected_units.queue.push_back(units_available.units[*i].clone());
+                    }
+                }
+                Selection::Unit(i) => {
+                    let mut units = units_query.single_mut();
+                    if units.selected.len() < MAX_NUMBER_OF_UNITS {
+                        if  let Some(index) = units.selected.iter().position(|value| *value == *i) {
+                            units.selected.swap_remove(index);
+                        } else {
+                            units.selected.push(*i);
+                        }
+                    }
+
+                    info!("SELECTED UNIT, {}. Units: {:?}", i, units.selected) }
+            }
+        }
+    }
+}
+
+fn menu_action(
+    interaction_query: Query<
+        (&Interaction, &MenuAction),
+        (Changed<Interaction>, With<Button>),
+    >,
+    mut game_state: ResMut<NextState<GameState>>,
+    mut application_state: ResMut<NextState<AppState>>,
 ){
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
             match menu_button_action {
-                UnitSelectionAction::GoToMap => {
+                MenuAction::Back => {
+                    application_state.set(AppState::Menu);
+                },
+                MenuAction::GoToMap => {
                     game_state.set(GameState::MapSelection);
                 },
-                UnitSelectionAction::Play => {
-                    game_state.set(GameState::InBattle);
-                }
-                // Probably don't need this here
-                UnitSelectionAction::SelectUnit => {
-                    info!("SELECTED UNIT")
-                }
             }
         }
     }
