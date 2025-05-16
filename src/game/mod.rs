@@ -4,11 +4,7 @@ use bevy_ecs_ldtk::LdtkProjectHandle;
 use bevy_asset_loader::prelude::*;
 
 use crate::{despawn_screen, AppState};
-mod movement;
-mod camera;
-mod level_setup;
 mod units;
-mod mouse;
 mod weapon;
 mod ui;
 mod unit_selection;
@@ -18,8 +14,6 @@ mod chest_selection;
 mod assets;
 mod battle_scene;
 
-use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
-use mouse::*;
 use units::*;
 use ui::*;
 use unit_selection::unit_selection_plugin;
@@ -52,8 +46,6 @@ pub struct AvailableUnits {
 
 #[derive(Component)]
 struct OnLevelScreen;
-
-
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(AppState = AppState::Game)]
@@ -150,10 +142,7 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(map_selection_plugin)
         .add_plugins(rewards_plugin)
         .add_plugins(chest_selection_plugin)
-        .add_plugins(battle_scene_plugin)
-        .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
-        .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
-        .add_systems(Update, track_mouse_coords);
+        .add_plugins(battle_scene_plugin);
 }
 
 #[derive(Default, Component)]

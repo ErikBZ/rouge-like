@@ -3,17 +3,21 @@ use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 
+mod movement;
+mod camera;
+mod map;
+mod mouse;
+
 use crate::{despawn_screen, AppState};
-use crate::game::{UnitsOnMap, GRID_SIZE, GRID_SIZE_VEC};
-use super::level_setup::{init_units_on_map, setup_transition_animation};
-use super::OnLevelScreen;
-use super::GameState;
+use crate::game::{UnitsOnMap, GRID_SIZE};
+use map::{init_units_on_map, setup_transition_animation, transition_animation};
+use super::{OnLevelScreen, GameState, MouseGridCoords};
 use super::units::{Teams, check_for_team_refresh};
-use super::movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use super::ui::{Stats, DetailView};
-use super::level_setup;
-use super::mouse::{update_hovered_unit, select_unit, removed_hovered_unit, hover_unit};
-use super::camera::{move_screen_rts, zoom_in_scroll_wheel};
+use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
+use mouse::{update_hovered_unit, select_unit, removed_hovered_unit, update_cursor_sprite,
+            hover_unit, track_mouse_coords, spawn_cursor_sprite, cursor_sprite_not_yet_spawned};
+use camera::{move_screen_rts, zoom_in_scroll_wheel};
 
 const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 
@@ -104,9 +108,12 @@ pub fn battle_scene_plugin(app: &mut App) {
         .add_sub_state::<BattleState>()
         .add_systems(OnExit(GameState::InBattle), (despawn_screen::<OnLevelScreen>, reset_game))
         .add_systems(Update, (
-            level_setup::transition_animation,
+            transition_animation,
             menu_action,
-        ).run_if(in_state(GameState::InBattle)));
+        ).run_if(in_state(GameState::InBattle)))
+        .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
+        .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
+        .add_systems(Update, track_mouse_coords);
 }
 
 // Loads the given ldtk file

@@ -4,7 +4,8 @@ use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::transl
 
 use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords, DetailView};
 use crate::game::ui::Stats;
-use super::{units::UnitStats, units::WeaponPack, Selected, Hovered, Teams, UnitsOnMap};
+use crate::game::units::{UnitStats, WeaponPack};
+use crate::game::{Selected, Hovered, Teams, UnitsOnMap};
 
 #[derive(Component)]
 pub struct MouseCursor;
