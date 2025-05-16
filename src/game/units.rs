@@ -3,7 +3,8 @@ use bevy::utils::hashbrown::{Equivalent, HashSet};
 use bevy_ecs_ldtk::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{BattleState, Player, Weapons};
+use super::{Player, Weapons};
+use super::battle_scene::BattleState;
 use super::weapon::Weapon;
 
 // TODO: This should have a different name

@@ -8,7 +8,7 @@ use crate::game::Enemy;
 use crate::game::GRID_SIZE;
 use crate::game::UnitType;
 use crate::game::unit_selection::SelectedUnits;
-use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel};
+use super::battle_scene::{BattleState, BattleComponentsLoaded, PlayerTurnLabel};
 use super::{UnitsOnMap, WeaponPack};
 
 // enum StartingLocations {

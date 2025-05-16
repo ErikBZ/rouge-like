@@ -6,7 +6,7 @@ mod menu;
 mod game;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum AppState {
+pub enum AppState {
     #[default]
     Splash,
     Menu,

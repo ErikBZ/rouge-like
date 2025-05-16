@@ -4,7 +4,8 @@ use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
 
-use crate::game::{LevelWalls, MouseGridCoords, Selected, UnitType, GRID_SIZE, units::UnitStats};
+use crate::game::{MouseGridCoords, Selected, UnitType, GRID_SIZE, units::UnitStats};
+use crate::game::battle_scene::LevelWalls;
 
 use super::{Teams, UnitsOnMap};
 

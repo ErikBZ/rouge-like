@@ -1,0 +1,301 @@
+use std::collections::HashSet;
+use bevy::prelude::*;
+use bevy_ecs_ldtk::prelude::*;
+use bevy_ecs_ldtk::LdtkProjectHandle;
+
+use crate::{despawn_screen, AppState};
+use crate::game::{UnitsOnMap, GRID_SIZE, GRID_SIZE_VEC};
+use super::level_setup::{init_units_on_map, setup_transition_animation};
+use super::OnLevelScreen;
+use super::GameState;
+use super::units::{Teams, check_for_team_refresh};
+use super::movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
+use super::ui::{Stats, DetailView};
+use super::level_setup;
+use super::mouse::{update_hovered_unit, select_unit, removed_hovered_unit, hover_unit};
+use super::camera::{move_screen_rts, zoom_in_scroll_wheel};
+
+const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
+
+#[derive(Component)]
+struct EndBattleEarly;
+
+#[derive(Component)]
+pub struct PlayerTurnLabel;
+
+#[derive(Default, Resource, Debug)]
+pub struct BattleComponentsLoaded(pub u32);
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
+#[source(GameState = GameState::InBattle)]
+pub enum BattleState {
+    // Player Actions
+    #[default]
+    Loading,
+    Select,
+    _InGameMenu,
+    _Move,
+    _Attack,
+    // Transitions
+    ToEnemyTurn,
+    ToPlayerTurn,
+    // Enemy
+    EnemyTurn,
+}
+
+#[derive(Default, Resource)]
+pub struct LevelWalls {
+    wall_locations: HashSet<GridCoords>,
+    level_width: i32,
+    level_height: i32,
+}
+
+impl LevelWalls {
+    pub fn in_wall(&self, grid_coords: &GridCoords) -> bool {
+        grid_coords.x < 0
+            || grid_coords.y < 0
+            || grid_coords.x >= self.level_width
+            || grid_coords.y >= self.level_height
+            || self.wall_locations.contains(grid_coords)
+    }
+}
+
+#[derive(Default, Component, Debug)]
+struct Wall;
+
+#[derive(Default, Bundle, LdtkIntCell)]
+struct WallBundle {
+    wall: Wall,
+}
+
+pub fn battle_scene_plugin(app: &mut App) {
+    app
+        .init_resource::<LevelWalls>()
+        .init_resource::<BattleComponentsLoaded>()
+        .register_ldtk_int_cell::<WallBundle>(1)
+        .add_systems(OnEnter(BattleState::Loading), init_battle)
+        // TODO: Should we force this to run when the level loads
+        // and not run any other update code until it's done?
+        .add_systems(Update, (
+            init_level_walls,
+            init_units_on_map,
+            transition_to_game
+        ).run_if(in_state(BattleState::Loading)))
+        .add_systems(Update, (
+            exit_to_menu,
+            move_screen_rts,
+            zoom_in_scroll_wheel,
+            add_queued_movement_target_to_entity,
+            lerp_queued_movement,
+            highlight_range,
+            dehilight_range,
+            select_unit,
+            hover_unit,
+            removed_hovered_unit,
+            check_for_team_refresh,
+            update_hovered_unit,
+        ).run_if(in_state(BattleState::Select)))
+        .add_systems(OnExit(BattleState::Select), refresh_units)
+        .add_systems(OnEnter(BattleState::ToEnemyTurn), setup_transition_animation)
+        .add_systems(OnEnter(BattleState::ToPlayerTurn), setup_transition_animation)
+        .add_systems(Update, (
+            enemy_turn
+        ).run_if(in_state(BattleState::EnemyTurn)))
+        .add_sub_state::<BattleState>()
+        .add_systems(OnExit(GameState::InBattle), (despawn_screen::<OnLevelScreen>, reset_game))
+        .add_systems(Update, (
+            level_setup::transition_animation,
+            menu_action,
+        ).run_if(in_state(GameState::InBattle)));
+}
+
+// Loads the given ldtk file
+// Must run before init_level_walls and init_units_on_map
+fn init_battle(
+    mut commands: Commands, 
+    assert_server: Res<AssetServer>, 
+    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
+) {
+    info!("Initialzing the battle");
+    commands.spawn((
+        LdtkWorldBundle {
+            ldtk_handle: LdtkProjectHandle { handle: assert_server.load("test_level.ldtk")},
+            ..Default::default()
+        },
+        OnLevelScreen
+    ));
+
+    commands.spawn((
+        Teams::new(),
+        OnLevelScreen
+    ));
+
+    // TODO: Remove the transform stuff here since it's
+    // not needed anymore
+    let (mut transform, mut proj) = q.single_mut();
+    transform.translation.x += 100.0 / 4.0;
+    transform.translation.x += 50.0 / 4.0;
+    proj.scale = 0.5;
+
+    commands.spawn((
+        Text::new(""),
+        OnLevelScreen,
+    )).with_child((
+        Node {
+            margin: UiRect::all(Val::Px(50.0)),
+            ..default()
+        },
+        PlayerTurnLabel,
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor::WHITE,
+        TextSpan::default(),
+    ));
+
+    commands.spawn((
+        OnLevelScreen,
+        DetailView,
+        Node {
+            width: Val::Percent(15.0),
+            height: Val::Percent(25.0),
+            ..Default::default()
+        },
+        Visibility::Hidden,
+        BackgroundColor(Color::WHITE),
+        Text::new(""),
+    )).with_children(|parent| {
+        parent.spawn((
+            Stats,
+            TextSpan::default(),
+            TextColor(Color::BLACK),
+            TextFont {
+                font_size: 13.0,
+                ..Default::default()
+            },
+        ));
+    });
+
+    commands.spawn((
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::End,
+            justify_content: JustifyContent::End,
+            ..default()
+        },
+        OnLevelScreen
+    )).with_children(|parent| {
+        parent.spawn((
+            Button,
+            Node {
+                width: Val::Px(250.0),
+                height: Val::Px(65.0),
+                margin: UiRect::all(Val::Px(20.0)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::BLACK),
+            EndBattleEarly,
+        )).with_children(|parent| {
+            parent.spawn((
+                Text::new("End Battle Early"),
+                TextColor(Color::WHITE),
+            ));
+        });
+    });
+}
+
+fn refresh_units(
+    mut team_q: Query<&mut Teams>,
+) {
+    team_q.single_mut().clear();
+}
+
+fn reset_game(mut components_loaded: ResMut<BattleComponentsLoaded>) {
+    components_loaded.0 = 0;
+}
+
+fn transition_to_game(
+    mut state: ResMut<NextState<BattleState>>,
+    components_loaded: Res<BattleComponentsLoaded>
+) {
+    info!("{} >= {}", components_loaded.0, REQUIRED_BATTLE_COMPONENTS);
+    if components_loaded.0 >= REQUIRED_BATTLE_COMPONENTS {
+        info!("Starting game and transition over to select state");
+        state.set(BattleState::Select);
+    }
+}
+
+// TODO: Do this at startup
+fn init_level_walls(
+    mut level_walls: ResMut<LevelWalls>,
+    mut level_events: EventReader<LevelEvent>,
+    mut components_loaded: ResMut<BattleComponentsLoaded>,
+    // TODO: does this get inited by the WallBundle line?
+    walls: Query<&GridCoords, With<Wall>>,
+    ldtk_project_entities: Query<&LdtkProjectHandle>,
+    ldtk_project_assets: Res<Assets<LdtkProject>>,
+) {
+    let mut loaded_walls = false;
+    for level_event in level_events.read() {
+        if let LevelEvent::Spawned(level_iid) = level_event {
+            loaded_walls = true;
+
+            let ldtk_project = ldtk_project_assets
+                .get(ldtk_project_entities.single())
+                .expect("LdtkProject should be loaded when level is spawned");
+            let level = ldtk_project
+                .get_raw_level_by_iid(level_iid.get())
+                .expect("spawned level should exist in project");
+
+            let wall_locations: HashSet<GridCoords> = walls.iter().copied().collect();
+
+            let new_level_walls = LevelWalls {
+                wall_locations,
+                level_width: level.px_wid / GRID_SIZE,
+                level_height: level.px_hei / GRID_SIZE,
+            };
+
+            *level_walls = new_level_walls;
+        }
+    }
+    if loaded_walls {
+        components_loaded.0 += 1;
+    }
+}
+
+fn enemy_turn(
+    mut game: ResMut<NextState<BattleState>>
+) {
+    info!("Calculating the enemies turn");
+    game.set(BattleState::ToPlayerTurn);
+}
+
+fn exit_to_menu(
+    mut game_state: ResMut<NextState<AppState>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut map: ResMut<UnitsOnMap>
+) {
+    if keys.pressed(KeyCode::Escape) {
+        map.clear();
+        game_state.set(AppState::Menu);
+    }
+}
+
+fn menu_action(
+    interaction_query: Query<
+        &Interaction,
+        (Changed<Interaction>, With<Button>, With<EndBattleEarly>),
+    >,
+    mut game_state: ResMut<NextState<GameState>>,
+){
+    for interaction in &interaction_query {
+        if *interaction == Interaction::Pressed {
+            game_state.set(GameState::ChestSelection);
+        }
+    }
+}
+
