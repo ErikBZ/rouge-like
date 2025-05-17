@@ -7,17 +7,18 @@ mod movement;
 mod camera;
 mod map;
 mod mouse;
+mod ui;
 
 use crate::{despawn_screen, AppState};
-use crate::game::{UnitsOnMap, GRID_SIZE};
-use map::{init_units_on_map, setup_transition_animation, transition_animation};
-use super::{OnLevelScreen, GameState, MouseGridCoords};
+use crate::game::GRID_SIZE;
+use map::{UnitsOnMap, init_units_on_map, setup_transition_animation, transition_animation};
+use super::{OnLevelScreen, GameState};
 use super::units::{Teams, check_for_team_refresh};
-use super::ui::{Stats, DetailView};
 use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
 use mouse::{update_hovered_unit, select_unit, removed_hovered_unit, update_cursor_sprite,
             hover_unit, track_mouse_coords, spawn_cursor_sprite, cursor_sprite_not_yet_spawned};
 use camera::{move_screen_rts, zoom_in_scroll_wheel};
+use ui::init_ui;
 
 const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 
@@ -29,6 +30,20 @@ pub struct PlayerTurnLabel;
 
 #[derive(Default, Resource, Debug)]
 pub struct BattleComponentsLoaded(pub u32);
+
+#[derive(Default, Resource, Debug)]
+pub struct MouseGridCoords(GridCoords);
+
+#[derive(Default, Component)]
+struct Selected;
+
+#[derive(Default, Component)]
+struct Hovered;
+
+enum UnitType {
+    Player,
+    Enemy
+}
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, SubStates)]
 #[source(GameState = GameState::InBattle)]
@@ -76,8 +91,10 @@ pub fn battle_scene_plugin(app: &mut App) {
     app
         .init_resource::<LevelWalls>()
         .init_resource::<BattleComponentsLoaded>()
+        .init_resource::<UnitsOnMap>()
+        .init_resource::<MouseGridCoords>()
         .register_ldtk_int_cell::<WallBundle>(1)
-        .add_systems(OnEnter(BattleState::Loading), init_battle)
+        .add_systems(OnEnter(BattleState::Loading), (init_battle, init_ui))
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?
         .add_systems(Update, (
@@ -143,76 +160,6 @@ fn init_battle(
     transform.translation.x += 100.0 / 4.0;
     transform.translation.x += 50.0 / 4.0;
     proj.scale = 0.5;
-
-    commands.spawn((
-        Text::new(""),
-        OnLevelScreen,
-    )).with_child((
-        Node {
-            margin: UiRect::all(Val::Px(50.0)),
-            ..default()
-        },
-        PlayerTurnLabel,
-        TextFont {
-            font_size: 20.0,
-            ..default()
-        },
-        TextColor::WHITE,
-        TextSpan::default(),
-    ));
-
-    commands.spawn((
-        OnLevelScreen,
-        DetailView,
-        Node {
-            width: Val::Percent(15.0),
-            height: Val::Percent(25.0),
-            ..Default::default()
-        },
-        Visibility::Hidden,
-        BackgroundColor(Color::WHITE),
-        Text::new(""),
-    )).with_children(|parent| {
-        parent.spawn((
-            Stats,
-            TextSpan::default(),
-            TextColor(Color::BLACK),
-            TextFont {
-                font_size: 13.0,
-                ..Default::default()
-            },
-        ));
-    });
-
-    commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::End,
-            justify_content: JustifyContent::End,
-            ..default()
-        },
-        OnLevelScreen
-    )).with_children(|parent| {
-        parent.spawn((
-            Button,
-            Node {
-                width: Val::Px(250.0),
-                height: Val::Px(65.0),
-                margin: UiRect::all(Val::Px(20.0)),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::BLACK),
-            EndBattleEarly,
-        )).with_children(|parent| {
-            parent.spawn((
-                Text::new("End Battle Early"),
-                TextColor(Color::WHITE),
-            ));
-        });
-    });
 }
 
 fn refresh_units(

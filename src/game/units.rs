@@ -1,9 +1,9 @@
 use bevy::prelude::*;
-use bevy::utils::hashbrown::{Equivalent, HashSet};
+use bevy::utils::hashbrown::HashSet;
 use bevy_ecs_ldtk::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::{Player, Weapons};
+use super::Player;
 use super::battle_scene::BattleState;
 use super::weapon::Weapon;
 

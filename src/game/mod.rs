@@ -1,9 +1,8 @@
-use bevy::{prelude::*, utils:: {HashMap, HashSet}};
+use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_ecs_ldtk::LdtkProjectHandle;
 use bevy_asset_loader::prelude::*;
 
-use crate::{despawn_screen, AppState};
+use crate::AppState;
 mod units;
 mod weapon;
 mod ui;
@@ -15,7 +14,6 @@ mod assets;
 mod battle_scene;
 
 use units::*;
-use ui::*;
 use unit_selection::unit_selection_plugin;
 use map_selection::map_selection_plugin;
 use rewards::rewards_plugin;
@@ -34,9 +32,6 @@ struct Player;
 
 #[derive(Default, Component)]
 struct Enemy;
-
-#[derive(Default, Resource, Debug)]
-pub struct MouseGridCoords(GridCoords);
 
 #[derive(Resource, AssetCollection)]
 pub struct AvailableUnits {
@@ -60,69 +55,6 @@ pub enum GameState {
     Rewards
 }
 
-#[derive(Default, Resource, Debug)]
-struct GameComponentsLoaded(u32);
-
-// Maybe use an Enum in a new struct to show Enemy/Player
-#[derive(Default, Resource, Debug)]
-struct UnitsOnMap {
-    player_units: HashMap<GridCoords, Entity>,
-    enemy_units: HashMap<GridCoords, Entity>
-}
-
-enum UnitType {
-    Player,
-    Enemy
-}
-
-impl UnitsOnMap {
-    pub fn get(&self, coords: &GridCoords) -> Option<Entity>{
-        if self.player_units.contains_key(coords) {
-            self.player_units.get(coords).copied()
-        } else if self.enemy_units.contains_key(coords) {
-            self.enemy_units.get(coords).copied()
-        } else {
-            None
-        }
-    }
-
-    pub fn remove(&mut self, coords: &GridCoords) {
-        if self.player_units.contains_key(coords) {
-            self.player_units.remove(coords);
-        } else if self.enemy_units.contains_key(coords) {
-            self.enemy_units.remove(coords);
-        }
-    }
-
-    pub fn add(&mut self, coords: &GridCoords, val: Entity, unit_type: UnitType) {
-        match unit_type {
-            UnitType::Enemy => {
-                self.enemy_units.insert(*coords, val);
-            },
-            UnitType::Player => {
-                self.player_units.insert(*coords, val);
-            }
-        }
-    }
-
-    pub fn contains(&self, coords: &GridCoords) -> bool {
-        self.player_units.contains_key(coords) || self.enemy_units.contains_key(coords)
-    }
-
-    pub fn clear(&mut self) {
-        self.player_units.clear();
-        self.enemy_units.clear();
-    }
-
-    pub fn is_player(&self, coords: &GridCoords) -> bool {
-        self.player_units.contains_key(coords)
-    }
-
-    pub fn is_enemy(&self, coords: &GridCoords) -> bool {
-        self.enemy_units.contains_key(coords)
-    }
-}
-
 // BUG: Second InBattle transition does not start BattleState at "Loading"
 pub fn game_plugin(app: &mut App) {
     // TODO: Despawn resources that won't be needed outside
@@ -130,9 +62,6 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(LdtkPlugin)
         .add_plugins(GameAssetPlugin)
         .insert_resource(LevelSelection::index(0))
-        .init_resource::<MouseGridCoords>()
-        .init_resource::<UnitsOnMap>()
-        .init_resource::<GameComponentsLoaded>()
         .add_sub_state::<GameState>()
         .add_loading_state(LoadingState::new(GameState::Loading)
             .continue_to_state(GameState::UnitSelection)
@@ -143,14 +72,4 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(rewards_plugin)
         .add_plugins(chest_selection_plugin)
         .add_plugins(battle_scene_plugin);
-}
-
-#[derive(Default, Component)]
-struct Selected;
-
-#[derive(Default, Component)]
-struct Hovered;
-
-fn turn_ending_animation() {
-    todo!()
 }

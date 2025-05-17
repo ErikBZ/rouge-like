@@ -4,11 +4,8 @@ use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
 
-use crate::game::{MouseGridCoords, Selected, UnitType, GRID_SIZE, units::UnitStats};
-use crate::game::battle_scene::LevelWalls;
-
-use super::{Teams, UnitsOnMap};
-
+use super::{MouseGridCoords, UnitsOnMap, Teams, UnitType, Selected, LevelWalls};
+use crate::game::{GRID_SIZE, units::UnitStats};
 
 #[derive(Component)]
 pub struct QueuedMovementTarget {
@@ -207,6 +204,7 @@ pub fn lerp_queued_movement(
             commands.entity(entity).remove::<QueuedMovementTarget>();
             commands.entity(entity).remove::<Selected>();
             units_on_map.remove(&coords);
+            // TODO: Replace with add_player
             units_on_map.add(&coords, entity, UnitType::Player);
             let mut team = player_team_q.single_mut();
             team.add(entity);
