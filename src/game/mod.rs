@@ -33,6 +33,10 @@ struct Player;
 #[derive(Default, Component)]
 struct Enemy;
 
+/// Tracks the Units that were selected for a run.
+#[derive(Resource)]
+struct SelectedUnits(Vec<UnitStats>);
+
 #[derive(Resource, AssetCollection)]
 pub struct AvailableUnits {
     #[asset(path="rouge/available.units.ron")]
@@ -62,6 +66,7 @@ pub fn game_plugin(app: &mut App) {
         .add_plugins(LdtkPlugin)
         .add_plugins(GameAssetPlugin)
         .insert_resource(LevelSelection::index(0))
+        .insert_resource(SelectedUnits(Vec::new()))
         .add_sub_state::<GameState>()
         .add_loading_state(LoadingState::new(GameState::Loading)
             .continue_to_state(GameState::UnitSelection)

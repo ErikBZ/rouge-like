@@ -3,13 +3,9 @@ use bevy_ecs_ldtk::utils::translation_to_grid_coords;
 use bevy_ecs_ldtk::prelude::*;
 use bevy::prelude::*;
 
-use crate::game::units::{UnitStats, UnitBundle};
-use crate::game::Player;
-use crate::game::Enemy;
-use crate::game::GRID_SIZE;
-use crate::game::unit_selection::SelectedUnits;
 use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel, UnitType};
-use crate::game::units::WeaponPack;
+use crate::game::units::{UnitStats, UnitBundle, WeaponPack};
+use crate::game::{Player, Enemy, GRID_SIZE, SelectedUnits};
 
 // Maybe use an Enum in a new struct to show Enemy/Player
 #[derive(Default, Resource, Debug)]
@@ -73,12 +69,14 @@ pub fn init_units_on_map(
     assert_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut units_on_map: ResMut<UnitsOnMap>,
-    mut selected_units_query: Query<&mut SelectedUnits>,
+    mut selected_units: ResMut<SelectedUnits>,
+
 ) {
     let mut units_loaded = false;
+    let mut tracker: usize = 0;
+
     for (entity, transform, entity_instance) in entity_query.iter() {
         units_loaded = true;
-        let mut selected_units = selected_units_query.single_mut();
         let texture = assert_server.load("tilesets/Dungeon_Character_2.png");
         let grid_coords = translation_to_grid_coords(transform.translation.xy(), IVec2::splat(GRID_SIZE));
         let layout = texture_atlases.add(TextureAtlasLayout::from_grid(
@@ -105,14 +103,21 @@ pub fn init_units_on_map(
                 )
             },
             "Player_Start" => {
-                if selected_units.queue.is_empty() {
-                    warn!("No more selected units. Skipping place");
+                if selected_units.0.is_empty() {
+                    error!("No selected units. Skipping placement for starting location.");
+                    // We continue instead of break so Enemies can still be placed
+                    continue;
+                }
+
+                if tracker >= selected_units.0.len() {
+                    debug!("There are more starting locations than units selected.");
                     continue;
                 }
 
                 info!("Creating player unit on map");
                 commands.entity(entity).insert(Player);
-                let stats = selected_units.queue.pop_back().unwrap().clone();
+                let stats = selected_units.0[tracker].clone();
+                tracker += 1;
                 units_on_map.add(&grid_coords, entity, UnitType::Player);
                 (
                     TextureAtlas {
@@ -142,6 +147,9 @@ pub fn init_units_on_map(
 
     if units_loaded {
         components_loaded.0 += 1;
+        if tracker == 0 && !selected_units.0.is_empty() {
+            error!("Could not place any selected units. Map has no starting locations for Player");
+        }
     }
 }
 

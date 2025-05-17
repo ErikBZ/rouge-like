@@ -1,11 +1,9 @@
-use std::collections::VecDeque;
 use bevy::prelude::*;
 
 use super::assets::UnitCollection;
 // TODO: Be consistent. Choose either crate or super
-use super::{AvailableUnits, GameState, OnLevelScreen};
+use super::{AvailableUnits, GameState, SelectedUnits};
 use crate::{despawn_screen, AppState};
-use crate::game::UnitStats;
 
 const MAX_NUMBER_OF_UNITS: usize = 3;
 
@@ -15,11 +13,6 @@ struct OnUnitSelectionScreen;
 #[derive(Component)]
 struct UnitsSelectedForMap {
     selected: Vec<usize>
-}
-
-#[derive(Component)]
-pub struct SelectedUnits {
-    pub queue: VecDeque<UnitStats>
 }
 
 #[derive(Component)]
@@ -43,17 +36,15 @@ pub fn unit_selection_plugin(app: &mut App) {
 
 fn init_screen(
     mut commands: Commands, 
+    mut selected_units: ResMut<SelectedUnits>,
     unit_handle: Res<AvailableUnits>,
     unit_collection: Res<Assets<UnitCollection>>,
 ) {
+    selected_units.0.clear();
+
     commands.spawn((
         UnitsSelectedForMap{selected: Vec::new()},
         OnUnitSelectionScreen
-    ));
-
-    commands.spawn((
-        SelectedUnits{queue: VecDeque::new()},
-        OnLevelScreen
     ));
 
     commands.spawn((
@@ -200,7 +191,7 @@ fn selection_action(
     >,
     mut game_state: ResMut<NextState<GameState>>,
     mut units_query: Query<&mut UnitsSelectedForMap>,
-    mut selected_units_query: Query<&mut SelectedUnits>,
+    mut selected_units: ResMut<SelectedUnits>,
     unit_handle: Res<AvailableUnits>,
     unit_collection: Res<Assets<UnitCollection>>
 ) {
@@ -210,11 +201,10 @@ fn selection_action(
                 Selection::Confirm => {
                     game_state.set(GameState::InBattle);
                     let units = units_query.single();
-                    let mut selected_units = selected_units_query.single_mut();
 
                     for i in units.selected.iter() {
                         let units_available = unit_collection.get(unit_handle.s.id()).unwrap();
-                        selected_units.queue.push_back(units_available.units[*i].clone());
+                        selected_units.0.push(units_available.units[*i].clone());
                     }
                 }
                 Selection::Unit(i) => {
