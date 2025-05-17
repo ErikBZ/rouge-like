@@ -70,6 +70,20 @@ pub struct LevelWalls {
 }
 
 impl LevelWalls {
+    pub fn new(height: i32, width: i32, walls: Option<HashSet<GridCoords>>) -> Self {
+        let walls: HashSet<GridCoords> = walls.unwrap_or_default();
+        Self {
+            level_height: height,
+            level_width: width,
+            wall_locations: walls,
+        }
+    }
+
+    pub fn insert(&mut self, grid_coords: GridCoords) {
+        self.wall_locations.insert(grid_coords);
+    }
+
+    /// Returns true when a GridCoord is outside of map area, or is a wall.
     pub fn in_wall(&self, grid_coords: &GridCoords) -> bool {
         grid_coords.x < 0
             || grid_coords.y < 0

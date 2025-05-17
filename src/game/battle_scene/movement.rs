@@ -216,10 +216,9 @@ pub fn lerp_queued_movement(
 fn calculate_range(
     origin: GridCoords,
     stats: UnitStats,
-    faction: UnitType,
     units_on_map: UnitsOnMap,
     walls: &LevelWalls,
-) -> Vec<GridCoords> {
+) -> HashSet<GridCoords> {
     let max_dist = stats.mov;
     let mut curr_dist = 0;
     let mut queue: VecDeque<GridCoords> = VecDeque::new();
@@ -227,11 +226,37 @@ fn calculate_range(
     let mut range_of_movement: HashSet<GridCoords> = HashSet::new();
 
     queue.push_back(origin);
-    while(curr_dist < max_dist) {
+    while curr_dist <= max_dist {
+        let mut next_queue: VecDeque<GridCoords> = VecDeque::new();
 
+        while let Some(center) = queue.pop_back() {
+            let neighbors = get_neighbors(center);
+
+            if !units_on_map.contains(&center) {
+                range_of_movement.insert(center);
+            }
+
+            // TODO: Add 'is_hostile' to units on map that can check if a unit exists in the space
+            // that is hostile to the given faction
+            if !(units_on_map.is_enemy(&neighbors[0]) || walls.in_wall(&neighbors[0])) {
+                next_queue.push_back(neighbors[0]);
+            }
+            if !(units_on_map.is_enemy(&neighbors[1]) || walls.in_wall(&neighbors[1])) {
+                next_queue.push_back(neighbors[1]);
+            }
+            if !(units_on_map.is_enemy(&neighbors[2]) || walls.in_wall(&neighbors[2])) {
+                next_queue.push_back(neighbors[2]);
+            }
+            if !(units_on_map.is_enemy(&neighbors[3]) || walls.in_wall(&neighbors[3])) {
+                next_queue.push_back(neighbors[3]);
+            }
+        }
+
+        queue = next_queue;
+        curr_dist += 1;
     }
 
-    todo!()
+    range_of_movement
 }
 
 pub fn highlight_range(
@@ -255,3 +280,92 @@ fn within(lhs: f32, rhs: f32, dist: f32) -> bool {
     (lhs - rhs).abs() < dist
 }
 
+
+mod test {
+    #[allow(unused_imports)]
+    use bevy_ecs_ldtk::GridCoords;
+    #[allow(unused_imports)]
+    use bevy::utils::HashSet;
+    #[allow(unused_imports)]
+    use crate::game::{battle_scene::{map::UnitsOnMap, LevelWalls}, units::UnitStats};
+    #[allow(unused_imports)]
+    use super::calculate_range;
+
+    #[test]
+    fn test_caculate_range_one() {
+        let walls = LevelWalls::new(7, 7, None);
+        let units_on_map = UnitsOnMap::new();
+        let unit_stats = UnitStats { mov: 1, ..Default::default()};
+
+        let range = calculate_range(
+            GridCoords::new(4, 4),
+            unit_stats,
+            units_on_map,
+            &walls
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(4, 4),
+            GridCoords::new(3, 4),
+            GridCoords::new(4, 3),
+            GridCoords::new(5, 4),
+            GridCoords::new(4, 5),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_range_two() {
+        let walls = LevelWalls::new(7, 7, None);
+        let units_on_map = UnitsOnMap::new();
+        let unit_stats = UnitStats { mov: 2, ..Default::default()};
+
+        let range = calculate_range(
+            GridCoords::new(4, 4),
+            unit_stats,
+            units_on_map,
+            &walls
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(4, 4),
+            GridCoords::new(3, 4),
+            GridCoords::new(2, 4),
+            GridCoords::new(3, 5),
+            GridCoords::new(4, 3),
+            GridCoords::new(4, 2),
+            GridCoords::new(3, 3),
+            GridCoords::new(5, 4),
+            GridCoords::new(6, 4),
+            GridCoords::new(5, 3),
+            GridCoords::new(4, 5),
+            GridCoords::new(4, 6),
+            GridCoords::new(5, 5),
+            GridCoords::new(3, 5),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_range_one_with_walls() {
+        let mut walls = LevelWalls::new(7, 7, None);
+        let units_on_map = UnitsOnMap::new();
+        let unit_stats = UnitStats { mov: 1, ..Default::default()};
+        walls.insert(GridCoords { x: 3, y: 4 });
+        walls.insert(GridCoords { x: 4, y: 5 });
+
+        let range = calculate_range(
+            GridCoords::new(4, 4),
+            unit_stats,
+            units_on_map,
+            &walls
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(4, 4),
+            GridCoords::new(4, 3),
+            GridCoords::new(5, 4),
+        ]);
+        assert_eq!(range, test);
+    }
+}
