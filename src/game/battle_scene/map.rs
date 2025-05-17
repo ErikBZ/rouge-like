@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use bevy_ecs_ldtk::utils::translation_to_grid_coords;
 use bevy_ecs_ldtk::prelude::*;
 use bevy::prelude::*;
@@ -6,15 +7,64 @@ use crate::game::units::{UnitStats, UnitBundle};
 use crate::game::Player;
 use crate::game::Enemy;
 use crate::game::GRID_SIZE;
-use crate::game::UnitType;
 use crate::game::unit_selection::SelectedUnits;
-use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel};
-use super::{UnitsOnMap, WeaponPack};
+use super::{BattleState, BattleComponentsLoaded, PlayerTurnLabel, UnitType};
+use crate::game::units::WeaponPack;
 
-// enum StartingLocations {
-//     Enemy(GridCoords),
-//     Player(GridCoords)
-// }
+// Maybe use an Enum in a new struct to show Enemy/Player
+#[derive(Default, Resource, Debug)]
+pub struct UnitsOnMap {
+    player_units: HashMap<GridCoords, Entity>,
+    enemy_units: HashMap<GridCoords, Entity>
+}
+
+impl UnitsOnMap {
+    pub fn get(&self, coords: &GridCoords) -> Option<Entity>{
+        if self.player_units.contains_key(coords) {
+            self.player_units.get(coords).copied()
+        } else if self.enemy_units.contains_key(coords) {
+            self.enemy_units.get(coords).copied()
+        } else {
+            None
+        }
+    }
+
+    pub fn remove(&mut self, coords: &GridCoords) {
+        if self.player_units.contains_key(coords) {
+            self.player_units.remove(coords);
+        } else if self.enemy_units.contains_key(coords) {
+            self.enemy_units.remove(coords);
+        }
+    }
+
+    pub fn add(&mut self, coords: &GridCoords, val: Entity, unit_type: UnitType) {
+        match unit_type {
+            UnitType::Enemy => {
+                self.enemy_units.insert(*coords, val);
+            },
+            UnitType::Player => {
+                self.player_units.insert(*coords, val);
+            }
+        }
+    }
+
+    pub fn contains(&self, coords: &GridCoords) -> bool {
+        self.player_units.contains_key(coords) || self.enemy_units.contains_key(coords)
+    }
+
+    pub fn clear(&mut self) {
+        self.player_units.clear();
+        self.enemy_units.clear();
+    }
+
+    pub fn is_player(&self, coords: &GridCoords) -> bool {
+        self.player_units.contains_key(coords)
+    }
+
+    pub fn is_enemy(&self, coords: &GridCoords) -> bool {
+        self.enemy_units.contains_key(coords)
+    }
+}
 
 pub fn init_units_on_map(
     mut commands: Commands,
@@ -102,7 +152,7 @@ pub fn setup_transition_animation(
     mut entities: Query<(Entity, &Node, &mut TextSpan), With<PlayerTurnLabel>>,
 ) {
     info!("Setting up transition animation");
-    for (entity, node, mut text) in entities.iter_mut() {
+    for (_entity, _node, mut text) in entities.iter_mut() {
         match active_game_state.get() {
             BattleState::ToEnemyTurn => **text = format!("ENEMY TURN"),
             BattleState::ToPlayerTurn => **text = format!("PLAYER TURN"),

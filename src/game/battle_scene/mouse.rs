@@ -2,9 +2,12 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::translation_to_grid_coords};
 
-use crate::game::{GRID_SIZE, GRID_SIZE_VEC, MouseGridCoords, DetailView};
-use crate::game::ui::Stats;
-use super::{units::UnitStats, units::WeaponPack, Selected, Hovered, Teams, UnitsOnMap};
+use super::{MouseGridCoords, Selected, Hovered};
+use super::map::UnitsOnMap;
+use super::ui::{DetailView, Stats};
+use crate::game::{GRID_SIZE, GRID_SIZE_VEC};
+use crate::game::units::{UnitStats, WeaponPack};
+use crate::game::Teams;
 
 #[derive(Component)]
 pub struct MouseCursor;
