@@ -1,3 +1,4 @@
+use bevy::utils::HashSet;
 use bevy::{prelude::*, time::Stopwatch, utils::HashMap};
 use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
 use std::{cmp::Ordering, collections::VecDeque};
@@ -210,6 +211,27 @@ pub fn lerp_queued_movement(
             team.add(entity);
         }
     }
+}
+
+fn calculate_range(
+    origin: GridCoords,
+    stats: UnitStats,
+    faction: UnitType,
+    units_on_map: UnitsOnMap,
+    walls: &LevelWalls,
+) -> Vec<GridCoords> {
+    let max_dist = stats.mov;
+    let mut curr_dist = 0;
+    let mut queue: VecDeque<GridCoords> = VecDeque::new();
+    // using aHash
+    let mut range_of_movement: HashSet<GridCoords> = HashSet::new();
+
+    queue.push_back(origin);
+    while(curr_dist < max_dist) {
+
+    }
+
+    todo!()
 }
 
 pub fn highlight_range(
