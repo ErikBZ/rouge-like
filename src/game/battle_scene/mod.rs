@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use bevy::prelude::*;
+use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 
@@ -39,6 +40,18 @@ struct Selected;
 
 #[derive(Default, Component)]
 struct Hovered;
+
+// What is a default Handler? Does it just point to a nothing?
+// Name this something different. Maybe HighlightTextures? And ignore cursor?
+#[derive(Default, Resource, Debug, AssetCollection)]
+struct InteractionTextures {
+    #[asset(path="tilesets/tile_highlight.png")]
+    movement_highlight: Handle<Image>,
+    #[asset(path="tilesets/tile_highlight.png")]
+    attack_highlight: Handle<Image>,
+    #[asset(path="cursor.png")]
+    cursor: Handle<Image>,
+}
 
 enum UnitType {
     Player,
@@ -107,6 +120,7 @@ pub fn battle_scene_plugin(app: &mut App) {
         .init_resource::<BattleComponentsLoaded>()
         .init_resource::<UnitsOnMap>()
         .init_resource::<MouseGridCoords>()
+        .init_resource::<InteractionTextures>()
         .register_ldtk_int_cell::<WallBundle>(1)
         .add_systems(OnEnter(BattleState::Loading), (init_battle, init_ui))
         // TODO: Should we force this to run when the level loads
@@ -151,9 +165,14 @@ pub fn battle_scene_plugin(app: &mut App) {
 // Must run before init_level_walls and init_units_on_map
 fn init_battle(
     mut commands: Commands, 
+    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    mut map_interactions: ResMut<InteractionTextures>,
     assert_server: Res<AssetServer>, 
-    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
 ) {
+    map_interactions.attack_highlight = assert_server.load("tilesets/tile_highlight.png");
+    map_interactions.movement_highlight = assert_server.load("tilesets/tile_highlight.png");
+    map_interactions.cursor = assert_server.load("cursor.png");
+
     info!("Initialzing the battle");
     commands.spawn((
         LdtkWorldBundle {

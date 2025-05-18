@@ -5,7 +5,7 @@ use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
 
-use super::{MouseGridCoords, UnitsOnMap, Teams, UnitType, Selected, LevelWalls};
+use super::{InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
 use crate::game::{GRID_SIZE, units::UnitStats};
 
 #[derive(Component)]
@@ -260,8 +260,12 @@ fn calculate_range(
 }
 
 pub fn highlight_range(
-    coords_q: Query<&GridCoords, Added<Selected>>
+    coords_q: Query<&GridCoords, Added<Selected>>,
+    highlight_texture_handles: Res<InteractionTextures>,
+    walls: Res<LevelWalls>,
+    units_on_map: Res<UnitsOnMap>,
 ) {
+
     for _coords in coords_q.iter() {
     }
 }
