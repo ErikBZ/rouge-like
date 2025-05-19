@@ -6,7 +6,7 @@ use std::ops::Sub;
 use std::collections::BinaryHeap;
 
 use super::{InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
-use crate::game::{GRID_SIZE, units::UnitStats};
+use crate::game::{GRID_SIZE, units::UnitStats, GRID_SIZE_VEC};
 
 #[derive(Component)]
 pub struct QueuedMovementTarget {
@@ -18,17 +18,30 @@ pub struct QueuedMovementTarget {
     pub speed: f32,
 }
 
+#[derive(Component)]
+pub struct HighlightBag(HashSet<GridCoords>);
+
+#[derive(Component)]
+pub struct HighlightTile;
+
+/// Create a queue of tiles for a unit to move through
 pub fn add_queued_movement_target_to_entity(
     mut commands: Commands,
-    player_team_q: Query<&Teams>,
+    highlight_bag_q: Query<&HighlightBag>,
     buttons: Res<ButtonInput<MouseButton>>,
     mouse_coords: Res<MouseGridCoords>,
     walls: Res<LevelWalls>,
     entities: Query<(Entity, &GridCoords, &UnitStats), With<Selected>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
+        let bag = highlight_bag_q.iter().next();
+        if bag.is_none() {
+            return
+        }
+        let bag = bag.unwrap();
+
         for (entity, current_coords, unit_stats) in entities.iter() {
-            if player_team_q.single().contains(&entity) {
+            if !bag.0.contains(&mouse_coords.0) {
                 return;
             }
 
@@ -214,9 +227,9 @@ pub fn lerp_queued_movement(
 }
 
 fn calculate_range(
-    origin: GridCoords,
-    stats: UnitStats,
-    units_on_map: UnitsOnMap,
+    origin: &GridCoords,
+    stats: &UnitStats,
+    units_on_map: &UnitsOnMap,
     walls: &LevelWalls,
 ) -> HashSet<GridCoords> {
     let max_dist = stats.mov;
@@ -225,7 +238,7 @@ fn calculate_range(
     // using aHash
     let mut range_of_movement: HashSet<GridCoords> = HashSet::new();
 
-    queue.push_back(origin);
+    queue.push_back(origin.clone());
     while curr_dist <= max_dist {
         let mut next_queue: VecDeque<GridCoords> = VecDeque::new();
 
@@ -260,22 +273,66 @@ fn calculate_range(
 }
 
 pub fn highlight_range(
-    coords_q: Query<&GridCoords, Added<Selected>>,
+    mut commands: Commands,
+    coords_q: Query<(&GridCoords, &UnitStats), Added<Selected>>,
     highlight_texture_handles: Res<InteractionTextures>,
     walls: Res<LevelWalls>,
     units_on_map: Res<UnitsOnMap>,
+    layers: Query<(&Name, Entity), With<LayerMetadata>>,
 ) {
 
-    for _coords in coords_q.iter() {
+    let map = units_on_map.into_inner();
+    let walls = walls.into_inner();
+    if let Some(res) = layers.iter().find(|p| p.0.as_str() == "StartingLocations") {
+        let mut layer_entity = commands.entity(res.1);
+        for (grid_coords, unit) in coords_q.iter() {
+            if map.get(grid_coords).is_none() {
+                warn!("The selected tag was added to an entity, but entity with given GridCoords was not found");
+                continue;
+            }
+
+            let range: HashSet<GridCoords> = calculate_range(grid_coords, unit, map, walls);
+            layer_entity.with_child(HighlightBag(range.clone()));
+
+            for coord in range.into_iter() {
+                layer_entity.with_children(|p| { 
+                    create_highlight_tile(p, coord, highlight_texture_handles.movement_highlight.clone());
+                });
+            }
+        }
     }
 }
 
+// TODO: use a tile pool next
+fn create_highlight_tile(parent: &mut ChildBuilder, coord: GridCoords, image: Handle<Image>) {
+    // TODO: Remove 2.0 and put in const
+    let t = Transform::from_translation(grid_coords_to_translation(coord, GRID_SIZE_VEC).extend(5.0));
+    parent.spawn((
+        HighlightTile,
+        coord,
+        t,
+        Sprite {
+            image,
+            ..default()
+        }
+    ));
+}
+
 pub fn dehilight_range(
+    mut commands: Commands,
     mut removals: RemovedComponents<Selected>,
-    coords_q: Query<&GridCoords>
+    highlight_bag_q: Query<Entity, With<HighlightBag>>,
+    hightlight_tile_q: Query<Entity, With<HighlightTile>>
 ) {
-    for entity in removals.read() {
-        if let Ok(_coords) = coords_q.get(entity) {
+    // System is always called, so we have to use the removals to check if we should run the
+    // dehighlight logic
+    if removals.read().next().is_some() {
+        for entity in highlight_bag_q.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        for entity in hightlight_tile_q.iter() {
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
@@ -302,9 +359,9 @@ mod test {
         let unit_stats = UnitStats { mov: 1, ..Default::default()};
 
         let range = calculate_range(
-            GridCoords::new(4, 4),
-            unit_stats,
-            units_on_map,
+            &GridCoords::new(4, 4),
+            &unit_stats,
+            &units_on_map,
             &walls
         );
 
@@ -325,9 +382,9 @@ mod test {
         let unit_stats = UnitStats { mov: 2, ..Default::default()};
 
         let range = calculate_range(
-            GridCoords::new(4, 4),
-            unit_stats,
-            units_on_map,
+            &GridCoords::new(4, 4),
+            &unit_stats,
+            &units_on_map,
             &walls
         );
 
@@ -359,9 +416,9 @@ mod test {
         walls.insert(GridCoords { x: 4, y: 5 });
 
         let range = calculate_range(
-            GridCoords::new(4, 4),
-            unit_stats,
-            units_on_map,
+            &GridCoords::new(4, 4),
+            &unit_stats,
+            &units_on_map,
             &walls
         );
 
