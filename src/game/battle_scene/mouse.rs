@@ -126,6 +126,7 @@ pub fn select_unit(
 
     // TODO: This looks horrendous
     if mouse_buttons.just_pressed(MouseButton::Left) {
+        debug!("Pressed tile: {:?}", mouse_coords);
         if let Some(entity) = units_on_map.get(&mouse_coords.0) {
             if !teams.contains(&entity) && units_on_map.is_player(&mouse_coords.0) {
                 commands.entity(entity).insert(Selected);
@@ -152,7 +153,6 @@ pub fn hover_unit(
     if !mouse_coords.is_changed() { return }
 
     if let Some(entity) = units_on_map.get(&mouse_coords.0) {
-        info!("Adding hovered to unit");
         commands.entity(entity).insert(Hovered);
     }
 

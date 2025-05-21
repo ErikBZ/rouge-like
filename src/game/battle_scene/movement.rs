@@ -186,20 +186,14 @@ pub fn lerp_queued_movement(
     time: Res<Time>
 ) {
     for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
-        if let Some(dest_target) = target.targets.get(0) {
+        if let Some(dest_target) = target.targets.front() {
             let time_delta = time.delta_secs();
-            let origin: IVec2 = IVec2::from(*coords);
-            let dest: IVec2 = IVec2::from(*dest_target);
-            let direction = dest.sub(origin).as_vec2().normalize() * (time_delta * target.speed);
-
-            let translation = Vec3 {
-                x: direction.x,
-                y: direction.y,
-                z: 0.0,
-            };
-
-            let target_in_world = grid_coords_to_translation(*dest_target, IVec2::splat(GRID_SIZE)).extend(transform.translation.z);
-            transform.translation = transform.translation + translation;
+            let target_in_world = grid_coords_to_translation(
+                *dest_target,
+                IVec2::splat(GRID_SIZE)).extend(transform.translation.z
+            );
+            let translation = target_in_world.sub(transform.translation).normalize() * (time_delta * target.speed);
+            transform.translation += translation;
 
             // NOTE: What about moving down or left?
             if (translation.x > 0.0 && transform.translation.x > target_in_world.x) ||
@@ -213,19 +207,23 @@ pub fn lerp_queued_movement(
 
             if within(transform.translation.x, target_in_world.x, 0.05) &&
                within(transform.translation.y, target_in_world.y, 0.05) {
-                *coords = *dest_target;
+                if target.targets.len() == 1 {
+                    // Stopping the movement
+                    commands.entity(entity).remove::<QueuedMovementTarget>();
+                    commands.entity(entity).remove::<Selected>();
+
+                    // Updating the Unit Map struct
+                    units_on_map.remove(&coords);
+                    units_on_map.add(dest_target, entity, UnitType::Player);
+                    let mut team = player_team_q.single_mut();
+                    team.add(entity);
+
+                    // making sure GridCoords match UnitMap
+                    *coords = *dest_target;
+                }
                 target.targets.pop_front();
             }
-
             target.time.tick(time.delta());
-        } else {
-            commands.entity(entity).remove::<QueuedMovementTarget>();
-            commands.entity(entity).remove::<Selected>();
-            units_on_map.remove(&coords);
-            // TODO: Replace with add_player
-            units_on_map.add(&coords, entity, UnitType::Player);
-            let mut team = player_team_q.single_mut();
-            team.add(entity);
         }
     }
 }
@@ -343,7 +341,7 @@ pub fn highlight_range(
         let mut layer_entity = commands.entity(res.1);
         for (grid_coords, unit, weapons) in coords_q.iter() {
             if map.get(grid_coords).is_none() {
-                warn!("The selected tag was added to an entity, but entity with given GridCoords was not found");
+                warn!("The selected tag was added to an entity, but entity with given coords {grid_coords:?} was not found");
                 continue;
             }
 
