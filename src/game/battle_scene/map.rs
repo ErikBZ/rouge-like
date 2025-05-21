@@ -15,6 +15,13 @@ pub struct UnitsOnMap {
 }
 
 impl UnitsOnMap {
+    pub fn new() -> Self {
+        Self {
+            player_units: HashMap::new(),
+            enemy_units: HashMap::new(),
+        }
+    }
+
     pub fn get(&self, coords: &GridCoords) -> Option<Entity>{
         if self.player_units.contains_key(coords) {
             self.player_units.get(coords).copied()

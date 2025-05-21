@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use bevy::prelude::*;
+use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_ldtk::LdtkProjectHandle;
 
@@ -40,6 +41,20 @@ struct Selected;
 #[derive(Default, Component)]
 struct Hovered;
 
+// What is a default Handler? Does it just point to a nothing?
+// Name this something different. Maybe HighlightTextures? And ignore cursor?
+#[derive(Default, Resource, Debug, AssetCollection)]
+struct InteractionTextures {
+    #[asset(path="tilesets/attack_highlight.png")]
+    attack_highlight: Handle<Image>,
+
+    #[asset(path="tilesets/tile_highlight.png")]
+    movement_highlight: Handle<Image>,
+
+    #[asset(path="cursor.png")]
+    cursor: Handle<Image>,
+}
+
 enum UnitType {
     Player,
     Enemy
@@ -70,6 +85,20 @@ pub struct LevelWalls {
 }
 
 impl LevelWalls {
+    pub fn new(height: i32, width: i32, walls: Option<HashSet<GridCoords>>) -> Self {
+        let walls: HashSet<GridCoords> = walls.unwrap_or_default();
+        Self {
+            level_height: height,
+            level_width: width,
+            wall_locations: walls,
+        }
+    }
+
+    pub fn insert(&mut self, grid_coords: GridCoords) {
+        self.wall_locations.insert(grid_coords);
+    }
+
+    /// Returns true when a GridCoord is outside of map area, or is a wall.
     pub fn in_wall(&self, grid_coords: &GridCoords) -> bool {
         grid_coords.x < 0
             || grid_coords.y < 0
@@ -93,6 +122,7 @@ pub fn battle_scene_plugin(app: &mut App) {
         .init_resource::<BattleComponentsLoaded>()
         .init_resource::<UnitsOnMap>()
         .init_resource::<MouseGridCoords>()
+        .init_resource::<InteractionTextures>()
         .register_ldtk_int_cell::<WallBundle>(1)
         .add_systems(OnEnter(BattleState::Loading), (init_battle, init_ui))
         // TODO: Should we force this to run when the level loads
@@ -109,7 +139,6 @@ pub fn battle_scene_plugin(app: &mut App) {
             add_queued_movement_target_to_entity,
             lerp_queued_movement,
             highlight_range,
-            dehilight_range,
             select_unit,
             hover_unit,
             removed_hovered_unit,
@@ -127,6 +156,7 @@ pub fn battle_scene_plugin(app: &mut App) {
         .add_systems(Update, (
             transition_animation,
             menu_action,
+            dehilight_range,
         ).run_if(in_state(GameState::InBattle)))
         .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
         .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
@@ -137,9 +167,14 @@ pub fn battle_scene_plugin(app: &mut App) {
 // Must run before init_level_walls and init_units_on_map
 fn init_battle(
     mut commands: Commands, 
+    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>,
+    mut map_interactions: ResMut<InteractionTextures>,
     assert_server: Res<AssetServer>, 
-    mut q: Query<(&mut Transform, &mut OrthographicProjection), With<Camera>>
 ) {
+    map_interactions.attack_highlight = assert_server.load("tilesets/attack_highlight.png");
+    map_interactions.movement_highlight = assert_server.load("tilesets/tile_highlight.png");
+    map_interactions.cursor = assert_server.load("cursor.png");
+
     info!("Initialzing the battle");
     commands.spawn((
         LdtkWorldBundle {
