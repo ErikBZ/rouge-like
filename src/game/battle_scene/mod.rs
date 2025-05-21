@@ -45,10 +45,12 @@ struct Hovered;
 // Name this something different. Maybe HighlightTextures? And ignore cursor?
 #[derive(Default, Resource, Debug, AssetCollection)]
 struct InteractionTextures {
+    #[asset(path="tilesets/attack_highlight.png")]
+    attack_highlight: Handle<Image>,
+
     #[asset(path="tilesets/tile_highlight.png")]
     movement_highlight: Handle<Image>,
-    #[asset(path="tilesets/tile_highlight.png")]
-    attack_highlight: Handle<Image>,
+
     #[asset(path="cursor.png")]
     cursor: Handle<Image>,
 }
@@ -137,7 +139,6 @@ pub fn battle_scene_plugin(app: &mut App) {
             add_queued_movement_target_to_entity,
             lerp_queued_movement,
             highlight_range,
-            dehilight_range,
             select_unit,
             hover_unit,
             removed_hovered_unit,
@@ -155,6 +156,7 @@ pub fn battle_scene_plugin(app: &mut App) {
         .add_systems(Update, (
             transition_animation,
             menu_action,
+            dehilight_range,
         ).run_if(in_state(GameState::InBattle)))
         .add_systems(Update, spawn_cursor_sprite.run_if(cursor_sprite_not_yet_spawned))
         .add_systems(Update, update_cursor_sprite.run_if(resource_exists_and_changed::<MouseGridCoords>))
@@ -169,7 +171,7 @@ fn init_battle(
     mut map_interactions: ResMut<InteractionTextures>,
     assert_server: Res<AssetServer>, 
 ) {
-    map_interactions.attack_highlight = assert_server.load("tilesets/tile_highlight.png");
+    map_interactions.attack_highlight = assert_server.load("tilesets/attack_highlight.png");
     map_interactions.movement_highlight = assert_server.load("tilesets/tile_highlight.png");
     map_interactions.cursor = assert_server.load("cursor.png");
 

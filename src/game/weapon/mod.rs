@@ -45,11 +45,12 @@ pub enum WeaponEffect {
     Passive
 }
 
-#[derive(PartialEq, Clone, Debug, Deserialize)]
+#[derive(PartialEq, Clone, Debug, Deserialize, Copy)]
 pub enum WeaponRange {
     // Makes contact
     Melee(u32),
-    // Makes no contact
+    // Makes no contact. Min and Max are inclusive.
+    // Range(min: 1, max: 2) is equivalent to Melee(2)
     Ranged{min: u32, max: u32},
 }
 

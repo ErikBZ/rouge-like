@@ -6,6 +6,8 @@ use std::ops::Sub;
 use std::collections::BinaryHeap;
 
 use super::{InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
+use crate::game::units::WeaponPack;
+use crate::game::weapon::WeaponRange;
 use crate::game::{GRID_SIZE, units::UnitStats, GRID_SIZE_VEC};
 
 #[derive(Component)]
@@ -20,6 +22,8 @@ pub struct QueuedMovementTarget {
 
 #[derive(Component)]
 pub struct HighlightBag(HashSet<GridCoords>);
+#[derive(Component)]
+pub struct AttackHighlightBag(HashSet<GridCoords>);
 
 #[derive(Component)]
 pub struct HighlightTile;
@@ -238,19 +242,20 @@ fn calculate_range(
     // using aHash
     let mut range_of_movement: HashSet<GridCoords> = HashSet::new();
 
-    queue.push_back(origin.clone());
+    queue.push_back(*origin);
     while curr_dist <= max_dist {
         let mut next_queue: VecDeque<GridCoords> = VecDeque::new();
 
         while let Some(center) = queue.pop_back() {
             let neighbors = get_neighbors(center);
 
-            if !units_on_map.contains(&center) {
+            if !units_on_map.contains(&center) || center == *origin {
                 range_of_movement.insert(center);
             }
 
             // TODO: Add 'is_hostile' to units on map that can check if a unit exists in the space
             // that is hostile to the given faction
+            // Why didn't i just make this a for loop?
             if !(units_on_map.is_enemy(&neighbors[0]) || walls.in_wall(&neighbors[0])) {
                 next_queue.push_back(neighbors[0]);
             }
@@ -272,9 +277,60 @@ fn calculate_range(
     range_of_movement
 }
 
+// This is gonna be a very dumb implementation. It's gonna check every box lol
+fn calculate_attack_range(weapon_range: WeaponRange, movement_range: &HashSet<GridCoords>) -> HashSet<GridCoords>{
+    let (min_dist, max_dist) = match weapon_range {
+        WeaponRange::Melee(d) => (0,d),
+        WeaponRange::Ranged{ min, max } => (min, max),
+    };
+
+
+    // using aHash
+    let mut range_of_attack: HashSet<GridCoords> = HashSet::new();
+
+    for coord in movement_range.iter() {
+        let filtered_coords = calculate_attack_range_from_coord(*coord, min_dist, max_dist)
+            .into_iter().filter(|item| 
+            !movement_range.contains(item)
+        );
+
+        for coord in filtered_coords {
+            range_of_attack.insert(coord);
+        }
+    }
+
+    range_of_attack
+}
+
+fn calculate_attack_range_from_coord(origin: GridCoords, min_dist: u32, max_dist: u32) -> HashSet<GridCoords> {
+    let mut curr_dist = 1;
+    let mut queue: VecDeque<GridCoords> = VecDeque::new();   
+    let mut attack_range: HashSet<GridCoords> = HashSet::new();
+
+    queue.push_back(origin);
+    while curr_dist <= max_dist {
+        let mut next_queue: VecDeque<GridCoords> = VecDeque::new();
+        while let Some(center) = queue.pop_back() {
+            for neighbor in get_neighbors(center) {
+                if !attack_range.contains(&neighbor) && neighbor != origin {
+                    next_queue.push_back(neighbor);
+                    if curr_dist >= min_dist {
+                        attack_range.insert(neighbor);
+                    }
+                }
+            }
+        }
+
+        queue = next_queue;
+        curr_dist += 1;
+    }
+
+    attack_range
+}
+
 pub fn highlight_range(
     mut commands: Commands,
-    coords_q: Query<(&GridCoords, &UnitStats), Added<Selected>>,
+    coords_q: Query<(&GridCoords, &UnitStats, &WeaponPack), Added<Selected>>,
     highlight_texture_handles: Res<InteractionTextures>,
     walls: Res<LevelWalls>,
     units_on_map: Res<UnitsOnMap>,
@@ -285,18 +341,26 @@ pub fn highlight_range(
     let walls = walls.into_inner();
     if let Some(res) = layers.iter().find(|p| p.0.as_str() == "StartingLocations") {
         let mut layer_entity = commands.entity(res.1);
-        for (grid_coords, unit) in coords_q.iter() {
+        for (grid_coords, unit, weapons) in coords_q.iter() {
             if map.get(grid_coords).is_none() {
                 warn!("The selected tag was added to an entity, but entity with given GridCoords was not found");
                 continue;
             }
 
             let range: HashSet<GridCoords> = calculate_range(grid_coords, unit, map, walls);
+            let attack_range: HashSet<GridCoords> = calculate_attack_range(weapons.get_equipped().range, &range);
             layer_entity.with_child(HighlightBag(range.clone()));
+            layer_entity.with_child(AttackHighlightBag(attack_range.clone()));
 
             for coord in range.into_iter() {
                 layer_entity.with_children(|p| { 
                     create_highlight_tile(p, coord, highlight_texture_handles.movement_highlight.clone());
+                });
+            }
+
+            for coord in attack_range.into_iter() {
+                layer_entity.with_children(|p| { 
+                    create_highlight_tile(p, coord, highlight_texture_handles.attack_highlight.clone());
                 });
             }
         }
@@ -322,12 +386,17 @@ pub fn dehilight_range(
     mut commands: Commands,
     mut removals: RemovedComponents<Selected>,
     highlight_bag_q: Query<Entity, With<HighlightBag>>,
+    attack_highlight_bag_q: Query<Entity, With<AttackHighlightBag>>,
     hightlight_tile_q: Query<Entity, With<HighlightTile>>
 ) {
     // System is always called, so we have to use the removals to check if we should run the
     // dehighlight logic
     if removals.read().next().is_some() {
         for entity in highlight_bag_q.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
+
+        for entity in attack_highlight_bag_q.iter() {
             commands.entity(entity).despawn_recursive();
         }
 
@@ -347,6 +416,8 @@ mod test {
     use bevy_ecs_ldtk::GridCoords;
     #[allow(unused_imports)]
     use bevy::utils::HashSet;
+    #[allow(unused_imports)]
+    use crate::game::battle_scene::movement::calculate_attack_range_from_coord;
     #[allow(unused_imports)]
     use crate::game::{battle_scene::{map::UnitsOnMap, LevelWalls}, units::UnitStats};
     #[allow(unused_imports)]
@@ -426,6 +497,90 @@ mod test {
             GridCoords::new(4, 4),
             GridCoords::new(4, 3),
             GridCoords::new(5, 4),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_attack_range_one() {
+        let range = calculate_attack_range_from_coord(
+            GridCoords { x: 2, y: 2 },
+            0,
+            1
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(1, 2),
+            GridCoords::new(2, 1),
+            GridCoords::new(3, 2),
+            GridCoords::new(2, 3),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_attack_range_two_min_one() {
+        let range = calculate_attack_range_from_coord(
+            GridCoords::new(2, 2),
+            2,
+            2
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(0, 2),
+            GridCoords::new(2, 0),
+            GridCoords::new(4, 2),
+            GridCoords::new(2, 4),
+            GridCoords::new(3, 3),
+            GridCoords::new(1, 1),
+            GridCoords::new(1, 3),
+            GridCoords::new(3, 1),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_attack_range_two() {
+        let range = calculate_attack_range_from_coord(
+            GridCoords::new(2, 2),
+            0,
+            2
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(1, 2),
+            GridCoords::new(2, 1),
+            GridCoords::new(3, 2),
+            GridCoords::new(2, 3),
+            GridCoords::new(0, 2),
+            GridCoords::new(2, 0),
+            GridCoords::new(4, 2),
+            GridCoords::new(2, 4),
+            GridCoords::new(3, 3),
+            GridCoords::new(1, 1),
+            GridCoords::new(1, 3),
+            GridCoords::new(3, 1),
+        ]);
+        assert_eq!(range, test);
+    }
+
+    #[test]
+    fn test_caculate_attack_range_two_min_two() {
+        let range = calculate_attack_range_from_coord(
+            GridCoords::new(2, 2),
+            2,
+            2
+        );
+
+        let test: HashSet<GridCoords> = HashSet::from_iter(vec![
+            GridCoords::new(0, 2),
+            GridCoords::new(2, 0),
+            GridCoords::new(4, 2),
+            GridCoords::new(2, 4),
+            GridCoords::new(3, 3),
+            GridCoords::new(1, 1),
+            GridCoords::new(1, 3),
+            GridCoords::new(3, 1),
         ]);
         assert_eq!(range, test);
     }
