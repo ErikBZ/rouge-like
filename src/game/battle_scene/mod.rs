@@ -9,13 +9,14 @@ mod camera;
 mod map;
 mod mouse;
 mod ui;
+mod fight;
 
 use crate::{despawn_screen, AppState};
 use crate::game::GRID_SIZE;
 use map::{UnitsOnMap, init_units_on_map, setup_transition_animation, transition_animation};
 use super::{OnLevelScreen, GameState};
 use super::units::{Teams, check_for_team_refresh};
-use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement};
+use movement::{add_queued_movement_target_to_entity, dehilight_range, highlight_range, lerp_queued_movement, confirm_movement_or_attack};
 use mouse::{update_hovered_unit, select_unit, removed_hovered_unit, update_cursor_sprite,
             hover_unit, track_mouse_coords, spawn_cursor_sprite, cursor_sprite_not_yet_spawned};
 use camera::{move_screen_rts, zoom_in_scroll_wheel};
@@ -67,9 +68,13 @@ pub enum BattleState {
     #[default]
     Loading,
     Select,
-    _InGameMenu,
+    // For Movement Anim?
     _Move,
+    // Shows Attackable Units
+    ConfirmMovement,
+    // Attack (goes back to Select)
     _Attack,
+    _InGameMenu,
     // Transitions
     ToEnemyTurn,
     ToPlayerTurn,
@@ -145,6 +150,9 @@ pub fn battle_scene_plugin(app: &mut App) {
             check_for_team_refresh,
             update_hovered_unit,
         ).run_if(in_state(BattleState::Select)))
+        .add_systems(Update, (
+            confirm_movement_or_attack
+        ).run_if(in_state(BattleState::ConfirmMovement)))
         .add_systems(OnExit(BattleState::Select), refresh_units)
         .add_systems(OnEnter(BattleState::ToEnemyTurn), setup_transition_animation)
         .add_systems(OnEnter(BattleState::ToPlayerTurn), setup_transition_animation)

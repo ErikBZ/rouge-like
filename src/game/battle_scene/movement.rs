@@ -1,11 +1,11 @@
 use bevy::utils::HashSet;
 use bevy::{prelude::*, time::Stopwatch, utils::HashMap};
-use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation};
+use bevy_ecs_ldtk::{prelude::*, utils::grid_coords_to_translation, utils::translation_to_grid_coords};
 use std::{cmp::Ordering, collections::VecDeque};
 use std::ops::Sub;
 use std::collections::BinaryHeap;
 
-use super::{InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
+use super::{BattleState, InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
 use crate::game::units::WeaponPack;
 use crate::game::weapon::WeaponRange;
 use crate::game::{GRID_SIZE, units::UnitStats, GRID_SIZE_VEC};
@@ -23,7 +23,7 @@ pub struct QueuedMovementTarget {
 #[derive(Component)]
 pub struct HighlightBag(HashSet<GridCoords>);
 #[derive(Component)]
-pub struct AttackHighlightBag(HashSet<GridCoords>);
+pub struct AttackHighlightBag(pub HashSet<GridCoords>);
 
 #[derive(Component)]
 pub struct HighlightTile;
@@ -183,7 +183,8 @@ pub fn lerp_queued_movement(
     mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
     mut units_on_map: ResMut<UnitsOnMap>,
     mut player_team_q: Query<&mut Teams>,
-    time: Res<Time>
+    time: Res<Time>,
+    mut state: ResMut<NextState<BattleState>>,
 ) {
     for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
         if let Some(dest_target) = target.targets.front() {
@@ -219,7 +220,12 @@ pub fn lerp_queued_movement(
                     team.add(entity);
 
                     // making sure GridCoords match UnitMap
+                    // NOTE: Maybe do this after movement has been confirmed?
+                    // that way the coords can be "original", and can be used to reset it
                     *coords = *dest_target;
+                    // Move to ConfirmMovement state?
+
+                    state.set(BattleState::ConfirmMovement);
                 }
                 target.targets.pop_front();
             }
@@ -300,7 +306,7 @@ fn calculate_attack_range(weapon_range: WeaponRange, movement_range: &HashSet<Gr
     range_of_attack
 }
 
-fn calculate_attack_range_from_coord(origin: GridCoords, min_dist: u32, max_dist: u32) -> HashSet<GridCoords> {
+pub fn calculate_attack_range_from_coord(origin: GridCoords, min_dist: u32, max_dist: u32) -> HashSet<GridCoords> {
     let mut curr_dist = 1;
     let mut queue: VecDeque<GridCoords> = VecDeque::new();   
     let mut attack_range: HashSet<GridCoords> = HashSet::new();
@@ -366,7 +372,7 @@ pub fn highlight_range(
 }
 
 // TODO: use a tile pool next
-fn create_highlight_tile(parent: &mut ChildBuilder, coord: GridCoords, image: Handle<Image>) {
+pub fn create_highlight_tile(parent: &mut ChildBuilder, coord: GridCoords, image: Handle<Image>) {
     // TODO: Remove 2.0 and put in const
     let t = Transform::from_translation(grid_coords_to_translation(coord, GRID_SIZE_VEC).extend(5.0));
     parent.spawn((
@@ -408,6 +414,75 @@ fn within(lhs: f32, rhs: f32, dist: f32) -> bool {
     (lhs - rhs).abs() < dist
 }
 
+pub fn confirm_movement_or_attack(
+    mut single: Single<(Entity, &mut Transform, &mut GridCoords), With<Selected>>,
+    mut state: ResMut<NextState<BattleState>>,
+    current_state: Res<State<BattleState>>,
+    buttons: Res<ButtonInput<MouseButton>>,
+) {
+    let (entity, transform, grid_coords) = single.into_inner();
+
+    if buttons.just_pressed(MouseButton::Left) {
+        info!("Left button clicked for confirm!");
+        state.set(BattleState::Select);
+    } else if buttons.just_pressed(MouseButton::Right) {
+        info!("Left button clicked for confirm!");
+        state.set(BattleState::Select);
+    }
+}
+
+#[derive(Component)]
+struct ConfirmMovementTag;
+
+pub fn show_attack_highlight(
+    mut commands: Commands,
+    single: Single<(&Transform, &WeaponPack), With<Selected>>,
+    layers: Query<(&Name, Entity), With<LayerMetadata>>,
+    highlight_texture_handles: Res<InteractionTextures>,
+    hightlight_tile_q: Query<Entity, With<HighlightTile>>
+) {
+    let res = match layers.iter().find(|p| p.0.as_str() == "StartingLocations") {
+        Some(e) => e,
+        None => return,
+    };
+
+    for tile in hightlight_tile_q.iter() {
+        commands.entity(tile).despawn_recursive();
+    }
+
+    let mut layer_entity = commands.entity(res.1);
+    let (transform, weapon_pack) = single.into_inner();
+
+    let (min_dist, max_dist) = match weapon_pack.get_equipped().range {
+        WeaponRange::Melee(d) => (0,d),
+        WeaponRange::Ranged{ min, max } => (min, max),
+    };
+    let origin = translation_to_grid_coords(transform.translation.xy(), GRID_SIZE_VEC);
+
+    let attack_range: HashSet<GridCoords> = calculate_attack_range_from_coord(origin, min_dist, max_dist);
+    layer_entity.with_children(|p| {
+        p.spawn((ConfirmMovementTag ,AttackHighlightBag(attack_range.clone())))
+            .with_children(|t| {
+                for coord in attack_range.into_iter() {
+                    create_highlight_tile(t, coord, highlight_texture_handles.attack_highlight.clone());
+                }
+            });
+    });
+
+
+}
+
+/// This function will also restore the old highlight if the confirm was rejected
+pub fn remove_attack_highlight(
+    mut commands: Commands,
+    layers: Query<(&Name, Entity), With<LayerMetadata>>,
+    highlight_texture_handles: Res<InteractionTextures>,
+    hightlight_tile_q: Query<Entity, With<HighlightTile>>,
+    attack_highlight_bag_q: Query<Entity, With<AttackHighlightBag>>,
+    highlight_bag_q: Query<Entity, With<HighlightBag>>,
+) {
+
+}
 
 mod test {
     #[allow(unused_imports)]
