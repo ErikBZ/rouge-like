@@ -27,6 +27,8 @@ const GRID_SIZE_VEC: IVec2 = IVec2 {
     y: 16
 };
 
+// TODO: Rename this. It is not clear this is a tag to attach
+// to a unit. IE a unit is a Player Unit when this tag is present
 #[derive(Default, Component)]
 struct Player;
 

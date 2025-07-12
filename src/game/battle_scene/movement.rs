@@ -31,6 +31,7 @@ pub struct HighlightTile;
 /// Create a queue of tiles for a unit to move through
 pub fn add_queued_movement_target_to_entity(
     mut commands: Commands,
+    // NOTE: Could this be an Option<Single<>>?
     highlight_bag_q: Query<&HighlightBag>,
     buttons: Res<ButtonInput<MouseButton>>,
     mouse_coords: Res<MouseGridCoords>,
@@ -180,13 +181,13 @@ fn get_neighbors(center: GridCoords) -> Vec<GridCoords> {
 
 pub fn lerp_queued_movement(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Transform, &mut GridCoords, &mut QueuedMovementTarget)>,
-    mut units_on_map: ResMut<UnitsOnMap>,
-    mut player_team_q: Query<&mut Teams>,
+    // NOTE: Transform will keep the current location of the Unit, but GridCoords will keep it's
+    // original position
+    mut query: Query<(Entity, &mut Transform, &mut QueuedMovementTarget)>,
     time: Res<Time>,
     mut state: ResMut<NextState<BattleState>>,
 ) {
-    for (entity, mut transform, mut coords, mut target) in query.iter_mut() {
+    for (entity, mut transform, mut target) in query.iter_mut() {
         if let Some(dest_target) = target.targets.front() {
             let time_delta = time.delta_secs();
             let target_in_world = grid_coords_to_translation(
@@ -211,20 +212,6 @@ pub fn lerp_queued_movement(
                 if target.targets.len() == 1 {
                     // Stopping the movement
                     commands.entity(entity).remove::<QueuedMovementTarget>();
-                    commands.entity(entity).remove::<Selected>();
-
-                    // Updating the Unit Map struct
-                    units_on_map.remove(&coords);
-                    units_on_map.add(dest_target, entity, UnitType::Player);
-                    let mut team = player_team_q.single_mut();
-                    team.add(entity);
-
-                    // making sure GridCoords match UnitMap
-                    // NOTE: Maybe do this after movement has been confirmed?
-                    // that way the coords can be "original", and can be used to reset it
-                    *coords = *dest_target;
-                    // Move to ConfirmMovement state?
-
                     state.set(BattleState::ConfirmMovement);
                 }
                 target.targets.pop_front();
@@ -395,18 +382,16 @@ pub fn dehilight_range(
 ) {
     // System is always called, so we have to use the removals to check if we should run the
     // dehighlight logic
-    if removals.read().next().is_some() {
-        for entity in highlight_bag_q.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
+    for entity in highlight_bag_q.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 
-        for entity in attack_highlight_bag_q.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
+    for entity in attack_highlight_bag_q.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 
-        for entity in hightlight_tile_q.iter() {
-            commands.entity(entity).despawn_recursive();
-        }
+    for entity in hightlight_tile_q.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
 
@@ -415,18 +400,39 @@ fn within(lhs: f32, rhs: f32, dist: f32) -> bool {
 }
 
 pub fn confirm_movement_or_attack(
-    mut single: Single<(Entity, &mut Transform, &mut GridCoords), With<Selected>>,
+    mut commands: Commands,
     mut state: ResMut<NextState<BattleState>>,
-    current_state: Res<State<BattleState>>,
+    mut units_on_map: ResMut<UnitsOnMap>,
+    mut player_team_q: Query<&mut Teams>,
+    single: Single<(Entity, &mut Transform, &mut GridCoords), With<Selected>>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
-    let (entity, transform, grid_coords) = single.into_inner();
+    let (entity, mut transform, mut coords) = single.into_inner();
 
     if buttons.just_pressed(MouseButton::Left) {
-        info!("Left button clicked for confirm!");
+        debug!("Left button clicked for confirm!");
+        commands.entity(entity).remove::<Selected>();
+
+        let dest_coords = translation_to_grid_coords(transform.translation.xy(), GRID_SIZE_VEC);
+        units_on_map.remove(&coords);
+        units_on_map.add(&dest_coords, entity, UnitType::Player);
+        // When team is full then we end the turn
+        let mut team = player_team_q.single_mut();
+        team.add(entity);
+
+        *coords = dest_coords;
+
         state.set(BattleState::Select);
     } else if buttons.just_pressed(MouseButton::Right) {
-        info!("Left button clicked for confirm!");
+        debug!("Right button clicked for cancel!");
+        commands.entity(entity).remove::<Selected>();
+
+        let original_position = grid_coords_to_translation(
+            *coords,
+            IVec2::splat(GRID_SIZE)).extend(transform.translation.z
+        );
+        transform.translation = original_position;
+
         state.set(BattleState::Select);
     }
 }
@@ -446,9 +452,9 @@ pub fn show_attack_highlight(
         None => return,
     };
 
-    for tile in hightlight_tile_q.iter() {
-        commands.entity(tile).despawn_recursive();
-    }
+    // for tile in hightlight_tile_q.iter() {
+    //     commands.entity(tile).despawn_recursive();
+    // }
 
     let mut layer_entity = commands.entity(res.1);
     let (transform, weapon_pack) = single.into_inner();
@@ -461,7 +467,7 @@ pub fn show_attack_highlight(
 
     let attack_range: HashSet<GridCoords> = calculate_attack_range_from_coord(origin, min_dist, max_dist);
     layer_entity.with_children(|p| {
-        p.spawn((ConfirmMovementTag ,AttackHighlightBag(attack_range.clone())))
+        p.spawn(AttackHighlightBag(attack_range.clone()))
             .with_children(|t| {
                 for coord in attack_range.into_iter() {
                     create_highlight_tile(t, coord, highlight_texture_handles.attack_highlight.clone());
