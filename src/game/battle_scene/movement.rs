@@ -340,6 +340,7 @@ pub fn highlight_range(
 
             let range: HashSet<GridCoords> = calculate_range(grid_coords, unit, map, walls);
             let attack_range: HashSet<GridCoords> = calculate_attack_range(weapons.get_equipped().range, &range);
+            // NOTE: Can't I just pass ownership to the struct, why am I cloning thing?
             layer_entity.with_child(HighlightBag(range.clone()));
             layer_entity.with_child(AttackHighlightBag(attack_range.clone()));
 
@@ -375,7 +376,6 @@ pub fn create_highlight_tile(parent: &mut ChildBuilder, coord: GridCoords, image
 
 pub fn dehilight_range(
     mut commands: Commands,
-    mut removals: RemovedComponents<Selected>,
     highlight_bag_q: Query<Entity, With<HighlightBag>>,
     attack_highlight_bag_q: Query<Entity, With<AttackHighlightBag>>,
     hightlight_tile_q: Query<Entity, With<HighlightTile>>
@@ -437,24 +437,16 @@ pub fn confirm_movement_or_attack(
     }
 }
 
-#[derive(Component)]
-struct ConfirmMovementTag;
-
 pub fn show_attack_highlight(
     mut commands: Commands,
     single: Single<(&Transform, &WeaponPack), With<Selected>>,
     layers: Query<(&Name, Entity), With<LayerMetadata>>,
     highlight_texture_handles: Res<InteractionTextures>,
-    hightlight_tile_q: Query<Entity, With<HighlightTile>>
 ) {
     let res = match layers.iter().find(|p| p.0.as_str() == "StartingLocations") {
         Some(e) => e,
         None => return,
     };
-
-    // for tile in hightlight_tile_q.iter() {
-    //     commands.entity(tile).despawn_recursive();
-    // }
 
     let mut layer_entity = commands.entity(res.1);
     let (transform, weapon_pack) = single.into_inner();
@@ -466,28 +458,13 @@ pub fn show_attack_highlight(
     let origin = translation_to_grid_coords(transform.translation.xy(), GRID_SIZE_VEC);
 
     let attack_range: HashSet<GridCoords> = calculate_attack_range_from_coord(origin, min_dist, max_dist);
-    layer_entity.with_children(|p| {
-        p.spawn(AttackHighlightBag(attack_range.clone()))
-            .with_children(|t| {
-                for coord in attack_range.into_iter() {
-                    create_highlight_tile(t, coord, highlight_texture_handles.attack_highlight.clone());
-                }
-            });
-    });
+    for coord in attack_range.iter() {
+        layer_entity.with_children(|p| {
+            create_highlight_tile(p, *coord, highlight_texture_handles.attack_highlight.clone());
+        });
+    }
 
-
-}
-
-/// This function will also restore the old highlight if the confirm was rejected
-pub fn remove_attack_highlight(
-    mut commands: Commands,
-    layers: Query<(&Name, Entity), With<LayerMetadata>>,
-    highlight_texture_handles: Res<InteractionTextures>,
-    hightlight_tile_q: Query<Entity, With<HighlightTile>>,
-    attack_highlight_bag_q: Query<Entity, With<AttackHighlightBag>>,
-    highlight_bag_q: Query<Entity, With<HighlightBag>>,
-) {
-
+    layer_entity.with_child(AttackHighlightBag(attack_range));
 }
 
 mod test {
