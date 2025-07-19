@@ -404,6 +404,7 @@ pub fn confirm_movement_or_attack(
     mut state: ResMut<NextState<BattleState>>,
     mut units_on_map: ResMut<UnitsOnMap>,
     mut player_team_q: Query<&mut Teams>,
+    mouse_coords: Res<MouseGridCoords>,
     single: Single<(Entity, &mut Transform, &mut GridCoords), With<Selected>>,
     buttons: Res<ButtonInput<MouseButton>>,
 ) {
@@ -422,7 +423,11 @@ pub fn confirm_movement_or_attack(
 
         *coords = dest_coords;
 
-        state.set(BattleState::Select);
+        if units_on_map.is_enemy(&mouse_coords.0) {
+            state.set(BattleState::Attack);
+        } else {
+            state.set(BattleState::Select);
+        }
     } else if buttons.just_pressed(MouseButton::Right) {
         debug!("Right button clicked for cancel!");
         commands.entity(entity).remove::<Selected>();

@@ -80,7 +80,7 @@ pub enum BattleState {
     // Shows Attackable Units
     ConfirmMovement,
     // Attack (goes back to Select)
-    _Attack,
+    Attack,
     _InGameMenu,
     // Transitions
     ToEnemyTurn,
