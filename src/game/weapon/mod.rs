@@ -54,6 +54,13 @@ pub enum WeaponRange {
     Ranged{min: u32, max: u32},
 }
 
+#[derive(PartialEq, Clone, Debug, Deserialize, Copy)]
+pub enum WeaponEffectiveness {
+    Strong,
+    Weak,
+    Neutral
+}
+
 #[derive(PartialEq, Clone, Debug, TypePath, Deserialize)]
 pub struct Weapon {
     pub attack: u32,
@@ -96,6 +103,18 @@ impl Weapon {
         }
     }
 
+    pub fn get_effectivness(&self, opposing: Weapon) -> WeaponEffectiveness {
+        match (
+            self.weapon_type.is_weak(&opposing.weapon_type),
+            self.weapon_type.is_strong(&opposing.weapon_type)
+        ) {
+            (false, false) => WeaponEffectiveness::Neutral,
+            (true, false) => WeaponEffectiveness::Weak,
+            (false, true) => WeaponEffectiveness::Strong,
+            (true, true) => unreachable!()
+        }
+    }
+
     pub fn get_name(&self) -> String {
         let rarity = match self.rarity {
             Rarity::Common => format!("common"),
@@ -117,26 +136,26 @@ impl Weapon {
 }
 
 impl WeaponType {
-    pub fn is_weak(&self, weapon_type: WeaponType) -> bool {
+    fn is_weak(&self, weapon_type: &WeaponType) -> bool {
         match self {
-            WeaponType::Lance => weapon_type == WeaponType::Axe,
-            WeaponType::Sword => weapon_type == WeaponType::Lance,
-            WeaponType::Axe => weapon_type == WeaponType::Sword,
-            WeaponType::Light => weapon_type == WeaponType::Natural,
-            WeaponType::Dark => weapon_type == WeaponType::Light,
-            WeaponType::Natural => weapon_type == WeaponType::Dark,
+            WeaponType::Lance => *weapon_type == WeaponType::Axe,
+            WeaponType::Sword => *weapon_type == WeaponType::Lance,
+            WeaponType::Axe => *weapon_type == WeaponType::Sword,
+            WeaponType::Light => *weapon_type == WeaponType::Natural,
+            WeaponType::Dark => *weapon_type == WeaponType::Light,
+            WeaponType::Natural => *weapon_type == WeaponType::Dark,
             WeaponType::Bow => false,
         }
     }
 
-    pub fn is_strong(&self, weapon_type: WeaponType) -> bool {
+    fn is_strong(&self, weapon_type: &WeaponType) -> bool {
         match self {
-            WeaponType::Lance => weapon_type == WeaponType::Sword,
-            WeaponType::Sword => weapon_type == WeaponType::Axe,
-            WeaponType::Axe => weapon_type == WeaponType::Lance,
-            WeaponType::Light => weapon_type == WeaponType::Natural,
-            WeaponType::Dark => weapon_type == WeaponType::Light,
-            WeaponType::Natural => weapon_type == WeaponType::Light,
+            WeaponType::Lance => *weapon_type == WeaponType::Sword,
+            WeaponType::Sword => *weapon_type == WeaponType::Axe,
+            WeaponType::Axe => *weapon_type == WeaponType::Lance,
+            WeaponType::Light => *weapon_type == WeaponType::Dark,
+            WeaponType::Dark => *weapon_type == WeaponType::Natural,
+            WeaponType::Natural => *weapon_type == WeaponType::Light,
             WeaponType::Bow => false,
         }
     }
@@ -429,3 +448,40 @@ fn get_legendary_weapon() -> Weapon {
     weapons.choose(&mut rand::rng()).unwrap().clone()
 }
 
+mod test {
+    #[allow(unused_imports)]
+    use super::{Weapon, WeaponEffectiveness, WeaponType};
+
+    #[allow(dead_code)]
+    fn get_default_weapon_of_type(weapon_type: WeaponType) -> Weapon {
+        Weapon {
+            weapon_type,
+            ..Default::default()
+        }
+    }
+
+    macro_rules! effectiveness_test {
+        ($($name:ident: $value:expr,)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let (lhs, rhs, expected) = $value;
+                let weapon_lhs = get_default_weapon_of_type(lhs);
+                let weapon_rhs = get_default_weapon_of_type(rhs);
+                assert_eq!(expected, weapon_lhs.get_effectivness(weapon_rhs));
+            }
+        )*
+        }
+    }
+    effectiveness_test! {
+        test_sw_sw_neutral: (WeaponType::Sword, WeaponType::Sword, WeaponEffectiveness::Neutral),
+        test_sw_lance_neutral: (WeaponType::Sword, WeaponType::Lance, WeaponEffectiveness::Weak),
+        test_light_dark_neutral: (WeaponType::Light, WeaponType::Dark, WeaponEffectiveness::Strong),
+        test_nat_light_neutral: (WeaponType::Natural, WeaponType::Light, WeaponEffectiveness::Strong),
+        test_bow_axe_neutral: (WeaponType::Bow, WeaponType::Axe, WeaponEffectiveness::Neutral),
+        test_axe_dark_neutral: (WeaponType::Axe, WeaponType::Dark, WeaponEffectiveness::Neutral),
+        test_dark_light_neutral: (WeaponType::Dark, WeaponType::Light, WeaponEffectiveness::Weak),
+        test_axe_lance_neutral: (WeaponType::Axe, WeaponType::Lance, WeaponEffectiveness::Strong),
+        test_lance_axe_neutral: (WeaponType::Lance, WeaponType::Axe, WeaponEffectiveness::Weak),
+    }
+}
