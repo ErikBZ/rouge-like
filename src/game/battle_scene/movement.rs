@@ -6,6 +6,7 @@ use std::ops::Sub;
 use std::collections::BinaryHeap;
 
 use super::{BattleState, InteractionTextures, LevelWalls, MouseGridCoords, Selected, Teams, UnitType, UnitsOnMap};
+use crate::game::battle_scene::fight::{Attacker, Defender};
 use crate::game::units::WeaponPack;
 use crate::game::weapon::WeaponRange;
 use crate::game::{GRID_SIZE, units::UnitStats, GRID_SIZE_VEC};
@@ -423,13 +424,17 @@ pub fn confirm_movement_or_attack(
 
         *coords = dest_coords;
 
-        if units_on_map.is_enemy(&mouse_coords.0) {
+        if let Some(enemy) = units_on_map.get_enemy(&mouse_coords.0) {
+            info!("Attacking unit!");
+            commands.entity(entity).insert(Attacker);
+            commands.entity(enemy).insert(Defender);
             state.set(BattleState::Attack);
         } else {
+            info!("Confirming movement");
             state.set(BattleState::Select);
         }
     } else if buttons.just_pressed(MouseButton::Right) {
-        debug!("Right button clicked for cancel!");
+        info!("Right button clicked for cancel!");
         commands.entity(entity).remove::<Selected>();
 
         let original_position = grid_coords_to_translation(

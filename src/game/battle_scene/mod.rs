@@ -28,6 +28,7 @@ use mouse::{update_hovered_unit, select_unit, removed_hovered_unit, update_curso
             hover_unit, track_mouse_coords, spawn_cursor_sprite, cursor_sprite_not_yet_spawned};
 use camera::{move_screen_rts, zoom_in_scroll_wheel};
 use ui::init_ui;
+use fight::fight_plugin;
 
 const REQUIRED_BATTLE_COMPONENTS: u32 = 2;
 
@@ -136,6 +137,7 @@ pub fn battle_scene_plugin(app: &mut App) {
         .init_resource::<MouseGridCoords>()
         .init_resource::<InteractionTextures>()
         .register_ldtk_int_cell::<WallBundle>(1)
+        .add_plugins(fight_plugin)
         .add_systems(OnEnter(BattleState::Loading), (init_battle, init_ui))
         // TODO: Should we force this to run when the level loads
         // and not run any other update code until it's done?

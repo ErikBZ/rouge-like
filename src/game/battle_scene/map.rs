@@ -32,6 +32,10 @@ impl UnitsOnMap {
         }
     }
 
+    pub fn get_enemy(&self, coords: &GridCoords) -> Option<Entity> {
+        self.enemy_units.get(coords).copied()
+    }
+
     pub fn remove(&mut self, coords: &GridCoords) {
         if self.player_units.contains_key(coords) {
             self.player_units.remove(coords);

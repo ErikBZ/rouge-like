@@ -61,7 +61,8 @@ pub struct UnitStats {
     pub hp: u32,
     pub def: u32,
     pub atk: u32,
-    pub spd: u32,
+    pub spd: i32,
+    pub skill: u32,
     pub mov: u32,
 }
 
@@ -73,7 +74,8 @@ impl Default for UnitStats {
             def: 0,
             atk: 3,
             spd: 2,
-            mov: 3,
+            skill: 3,
+            mov: 8,
         }
     }
 }
@@ -86,6 +88,7 @@ impl UnitStats {
             def: 0,
             atk: 1,
             spd: 2,
+            skill: 3,
             mov: 1,
         }
     }
@@ -97,8 +100,17 @@ impl UnitStats {
             def: 1,
             atk: 3,
             spd: 3,
-            mov: 2,
+            skill: 3,
+            mov: 8,
         }
+    }
+
+    pub fn accuracy(&self) -> u32 {
+        2 * self.skill
+    }
+
+    pub fn attack_speed(&self) -> i32 {
+        2 * self.spd
     }
 }
 
@@ -113,7 +125,7 @@ pub struct UnitBundle {
 #[derive(Default, Component)]
 pub struct WeaponPack {
     pub weapons: Vec<Weapon>,
-    pub equipped: usize,
+    equipped: usize,
 }
 
 impl WeaponPack {

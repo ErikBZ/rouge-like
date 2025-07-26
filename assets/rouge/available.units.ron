@@ -6,7 +6,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Courage",
@@ -14,7 +15,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Lassie",
@@ -22,7 +24,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Dog",
@@ -30,7 +33,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Cat",
@@ -38,7 +42,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Elephant",
@@ -46,7 +51,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Giraffe",
@@ -54,7 +60,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Slow Loris",
@@ -62,7 +69,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Chipmanzee",
@@ -70,7 +78,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Orangutan",
@@ -78,7 +87,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Tom",
@@ -86,7 +96,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
     (
         name: "Double D",
@@ -94,8 +105,8 @@ UnitCollection (
         def: 0,
         atk: 3,
         spd: 2,
-        mov: 3,
+        mov: 8,
+        skill: 3,
     ),
-
   ]
 )
