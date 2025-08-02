@@ -8,6 +8,12 @@ pub struct DetailView;
 #[derive(Debug, Component)]
 pub struct Stats;
 
+#[derive(Debug, Component)]
+pub struct BattleSummaryView;
+
+#[derive(Debug, Component)]
+pub struct BattleSummaryText;
+
 pub fn init_ui(
     mut commands: Commands, 
 ) {
@@ -42,6 +48,29 @@ pub fn init_ui(
     )).with_children(|parent| {
         parent.spawn((
             Stats,
+            TextSpan::default(),
+            TextColor(Color::BLACK),
+            TextFont {
+                font_size: 13.0,
+                ..Default::default()
+            },
+        ));
+    });
+
+    commands.spawn((
+        OnLevelScreen,
+        BattleSummaryView,
+        Node {
+            width: Val::Percent(15.0),
+            height: Val::Percent(25.0),
+            ..Default::default()
+        },
+        Visibility::Hidden,
+        BackgroundColor(Color::WHITE),
+        Text::new(""),
+    )).with_children(|parent| {
+        parent.spawn((
+            BattleSummaryText,
             TextSpan::default(),
             TextColor(Color::BLACK),
             TextFont {

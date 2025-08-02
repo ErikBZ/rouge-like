@@ -103,7 +103,7 @@ impl Weapon {
         }
     }
 
-    pub fn get_effectivness(&self, opposing: Weapon) -> WeaponEffectiveness {
+    pub fn get_effectivness(&self, opposing: &Weapon) -> WeaponEffectiveness {
         match (
             self.weapon_type.is_weak(&opposing.weapon_type),
             self.weapon_type.is_strong(&opposing.weapon_type)

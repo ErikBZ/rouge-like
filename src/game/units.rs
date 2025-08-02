@@ -61,7 +61,7 @@ pub struct UnitStats {
     pub hp: u32,
     pub def: u32,
     pub atk: u32,
-    pub spd: i32,
+    pub spd: u32,
     pub skill: u32,
     pub mov: u32,
 }
@@ -109,8 +109,16 @@ impl UnitStats {
         2 * self.skill
     }
 
-    pub fn attack_speed(&self) -> i32 {
+    pub fn attack_speed(&self) -> u32 {
         2 * self.spd
+    }
+
+    pub fn crit(&self) -> u32 {
+        self.accuracy()
+    }
+
+    pub fn dodge(&self) -> u32 {
+        self.attack_speed()
     }
 }
 
