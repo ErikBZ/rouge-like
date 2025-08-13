@@ -1,3 +1,4 @@
+use bevy::prelude::info;
 use rand::distr::{Distribution, StandardUniform};
 use rand::seq::IndexedRandom;
 use rand::Rng;
@@ -115,12 +116,25 @@ impl Weapon {
         }
     }
 
+    pub fn within_range(&self, dist: u32) -> bool {
+        match self.range {
+            WeaponRange::Melee(x) => {
+                info!("{} >= {}", x, dist);
+                x >= dist
+            },
+            WeaponRange::Ranged { min, max } => {
+                info!("{} >= {} && {} <= {}", dist, min, dist, max);
+                dist >= min && dist <= max
+            },
+        }
+    }
+
     pub fn get_name(&self) -> String {
         let rarity = match self.rarity {
-            Rarity::Common => format!("common"),
-            Rarity::Uncommon => format!("uncommon"),
-            Rarity::Rare => format!("rare"),
-            Rarity::Legendary => format!("legendary"),
+            Rarity::Common => "common",
+            Rarity::Uncommon => "uncommon",
+            Rarity::Rare => "rare",
+            Rarity::Legendary => "legendary",
         };
 
         match self.weapon_type {

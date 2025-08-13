@@ -4,6 +4,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 mod splash;
 mod menu;
 mod game;
+mod util;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum AppState {
