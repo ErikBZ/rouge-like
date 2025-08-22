@@ -7,11 +7,12 @@ use bevy::window::PrimaryWindow;
 use bevy_ecs_ldtk::GridCoords;
 use bevy_ecs_ldtk::utils::translation_to_grid_coords;
 
-use crate::game::units::{UnitStats, WeaponPack};
+use crate::game::units::{Teams, UnitStats, WeaponPack};
 use crate::game::weapon::{Weapon, WeaponEffectiveness};
 use crate::game::GRID_SIZE_VEC;
 use crate::util::manhattan_dist;
 
+use super::map::UnitsOnMap;
 use super::mouse::hover_unit;
 use super::ui::{BattleSummaryText, BattleSummaryView}; use super::{BattleState, Hovered, Selected};
 use super::movement::AttackHighlightBag;
@@ -27,8 +28,15 @@ pub struct Attacker;
 #[derive(Component)]
 pub struct Defender;
 
+#[derive(Event)]
+struct UnitDeathEvent {
+    coords: GridCoords,
+    entity: Entity,
+}
+
 pub fn fight_plugin(app: &mut App) {
     app
+        .add_event::<UnitDeathEvent>()
         .add_systems(Update, (
                 hover_unit, 
                 show_battle_summary, 
@@ -38,7 +46,7 @@ pub fn fight_plugin(app: &mut App) {
         .add_systems(OnExit(BattleState::ConfirmMovement), cleanup_battle_summary_and_hover)
         .add_systems(OnEnter(BattleState::Attack), calculate_battle_queue)
         .add_systems(OnExit(BattleState::Attack), clean_battle)
-        .add_systems(Update, (animate_attack).run_if(in_state(BattleState::Attack)));
+        .add_systems(Update, (animate_attack, delete_units).run_if(in_state(BattleState::Attack)));
 }
 
 struct ActorSummary {
@@ -383,15 +391,21 @@ fn animate_attack(
     mut commands: Commands,
     mut state: ResMut<NextState<BattleState>>,
     mut battle_queue: Query<(Entity, &mut BattleQueue)>,
-    attacker: Single<&mut UnitStats, With<Attacker>>,
+    mut death_event: EventWriter<UnitDeathEvent>,
+    attacker: Single<(Entity, &GridCoords, &mut UnitStats), With<Attacker>>,
     // NOTE: I can't grab 2 mutable references to the same struct, so need
     // to make sure it's impossible, i.e. defender CANNOT have attacker
-    defender: Single<&mut UnitStats, (With<Defender>, Without<Attacker>)>
+    defender: Single<
+        (Entity, &GridCoords, &mut UnitStats),
+        (With<Defender>, Without<Attacker>)
+    >
 ) {
     if battle_queue.is_empty() { return }
     let (e, mut bq) = battle_queue.iter_mut().next().unwrap();
 
-    info!("There was a fight!");
+    let (atk_entity, atk_coords, mut atk_stats) = attacker.into_inner();
+    let (def_enitty, def_coords, mut def_stats) = defender.into_inner();
+
     match bq.queue.pop_front() {
         Some(BattleAction::Attack { actor, damage }) => {
             let d = match damage {
@@ -409,9 +423,6 @@ fn animate_attack(
                 }
             };
 
-            let mut atk_stats = attacker.into_inner();
-            let mut def_stats = defender.into_inner();
-
             match actor {
                 Actor::Attacker => {
                     def_stats.hp = def_stats.hp.saturating_sub(d);
@@ -427,26 +438,61 @@ fn animate_attack(
                 }
             }
         },
-        Some(BattleAction::Death(a)) => {
+        Some(BattleAction::Death(actor)) => {
             bq.queue.clear();
-            info!("{:?} Died!", a)
+            match actor {
+                Actor::Attacker => {
+                    death_event.send(UnitDeathEvent {
+                        coords: *atk_coords,
+                        entity: atk_entity
+                    });
+                },
+                Actor::Defender => {
+                    death_event.send(UnitDeathEvent {
+                        coords: *def_coords,
+                        entity: def_enitty
+                    });
+                },
+            }
+            // So that we don't have to continue calling animate attack
+            commands.entity(e).remove::<BattleQueue>();
+            state.set(BattleState::Select)
         },
         None => {
+            bq.queue.clear();
             commands.entity(e).remove::<BattleQueue>();
             state.set(BattleState::Select)
         },
     };
 }
 
+fn delete_units(
+    mut commands: Commands,
+    mut death_event: EventReader<UnitDeathEvent>,
+    mut map: ResMut<UnitsOnMap>,
+
+
+) {
+    for ev in death_event.read() {
+        info!("{:?} Died!", ev.coords);
+        map.remove(&ev.coords);
+        // TODO: Move the sprite away or maybe just remove UnitStats and Sprite?
+    }
+}
+
 fn clean_battle(
     mut commands: Commands,
-    attacker: Single<Entity, With<Attacker>>,
-    defender: Single<Entity, With<Defender>>
+    attacker: Option<Single<Entity, With<Attacker>>>,
+    defender: Option<Single<Entity, With<Defender>>>
 ) {
-    let atk = attacker.into_inner();
-    let def = defender.into_inner();
+    if let Some(a) = attacker {
+        let atk = a.into_inner();
+        commands.entity(atk).remove::<Attacker>();
+    }
 
-    commands.entity(atk).remove::<Attacker>();
-    commands.entity(def).remove::<Defender>();
+    if let Some(d) = defender {
+        let def = d.into_inner();
+        commands.entity(def).remove::<Defender>();
+    }
 }
 

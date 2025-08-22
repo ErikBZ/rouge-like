@@ -73,6 +73,8 @@ impl UnitsOnMap {
     }
 }
 
+// NOTE: This function will create Units, and add them to
+//  an existing entity
 pub fn init_units_on_map(
     mut commands: Commands,
     mut components_loaded: ResMut<BattleComponentsLoaded>,
@@ -138,7 +140,10 @@ pub fn init_units_on_map(
                     stats
                 )
             }
-            _ => continue,
+            _ => {
+                error!("ID for Starting Map Layer not recognized: {}", entity_instance.identifier.as_str());
+                continue
+            },
         };
 
         commands.entity(entity).insert ((

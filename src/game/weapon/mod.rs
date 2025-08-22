@@ -119,11 +119,9 @@ impl Weapon {
     pub fn within_range(&self, dist: u32) -> bool {
         match self.range {
             WeaponRange::Melee(x) => {
-                info!("{} >= {}", x, dist);
                 x >= dist
             },
             WeaponRange::Ranged { min, max } => {
-                info!("{} >= {} && {} <= {}", dist, min, dist, max);
                 dist >= min && dist <= max
             },
         }
