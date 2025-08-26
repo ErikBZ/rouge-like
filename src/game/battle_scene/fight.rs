@@ -108,7 +108,6 @@ impl BattleSummary {
 
         // NOTE: This dist is from the units original position, not it's new position where the
         // dist should be calcualted from
-        info!("Distance: {}", dist);
         let defender_summary = if defender_weapon.within_range(dist) {
             ActorSummary {
                 hp: defender.hp,
@@ -470,13 +469,12 @@ fn delete_units(
     mut commands: Commands,
     mut death_event: EventReader<UnitDeathEvent>,
     mut map: ResMut<UnitsOnMap>,
-
-
 ) {
     for ev in death_event.read() {
         info!("{:?} Died!", ev.coords);
         map.remove(&ev.coords);
         // TODO: Move the sprite away or maybe just remove UnitStats and Sprite?
+        commands.entity(ev.entity).despawn();
     }
 }
 
