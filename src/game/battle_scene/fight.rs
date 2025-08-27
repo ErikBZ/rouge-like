@@ -46,7 +46,7 @@ pub fn fight_plugin(app: &mut App) {
         .add_systems(OnExit(BattleState::ConfirmMovement), cleanup_battle_summary_and_hover)
         .add_systems(OnEnter(BattleState::Attack), calculate_battle_queue)
         .add_systems(OnExit(BattleState::Attack), clean_battle)
-        .add_systems(Update, (animate_attack, delete_units).run_if(in_state(BattleState::Attack)));
+        .add_systems(Update, ((animate_attack, delete_units).chain()).run_if(in_state(BattleState::Attack)));
 }
 
 struct ActorSummary {
